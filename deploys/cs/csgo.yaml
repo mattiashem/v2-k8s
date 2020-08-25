@@ -19,6 +19,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: csgo-deployment
+  namespace: cs
   labels:
     app: csgo
   annotations:
@@ -83,6 +84,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: csgo-service
+  namespace: cs
   annotations:
     fluxcd.io/automated: "true"
     fluxcd.io/tag.init: regex:^3.10.*
@@ -103,6 +105,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: csgo-service-tcp
+  namespace: cs
   annotations:
     fluxcd.io/automated: "true"
     fluxcd.io/tag.init: regex:^3.10.*

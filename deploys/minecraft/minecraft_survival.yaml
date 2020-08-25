@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: minecraft-survival
+  namespace: minecraft
   labels:
     app: mc-s
 spec:
@@ -41,6 +42,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: mc-service-survival
+  namespace: minecraft
 spec:
   type: NodePort
   selector:

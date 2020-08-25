@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: minecraft-jarfalla-deployment
+  namespace: minecraft
   labels:
     app: mc
 spec:
@@ -39,6 +40,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: mc2-service-jarfalla
+  namespace: minecraft
 spec:
   type: NodePort
   selector:

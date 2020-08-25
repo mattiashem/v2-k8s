@@ -17,6 +17,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cs16-deployment
+  namespace: cs
   labels:
     app: cs16
   annotations:
@@ -73,6 +74,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: cs16-service-tcp
+  namespace: cs
   annotations:
     fluxcd.io/automated: "true"
     fluxcd.io/tag.init: regex:^3.10.*
@@ -94,6 +96,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: cs16-service-udp
+  namespace: cs
   annotations:
     fluxcd.io/automated: "true"
     fluxcd.io/tag.init: regex:^3.10.*
