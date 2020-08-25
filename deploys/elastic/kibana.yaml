@@ -49,3 +49,31 @@ spec:
     - protocol: TCP
       port: 5601
       targetPort: 5601
+---
+    kind: Ingress
+    apiVersion: extensions/v1beta1
+    metadata:
+      name: "kibana-ingress"
+      annotations:
+        kubernetes.io/ingress.class: "traefik"
+        traefik.ingress.kubernetes.io/rule-type: "PathPrefixStrip"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        kubernetes.io/tls-acme: "true"
+        fluxcd.io/automated: "true"
+        fluxcd.io/tag.init: regex:^3.10.*
+        fluxcd.io/tag.podinfod: semver:~3.1
+    spec:
+      tls:
+      - hosts:
+        - kibana.home.ollebo.com
+        secretName: kibana-tls
+          
+          
+      rules:
+        - host: kibana.home.ollebo.com
+          http:
+            paths:
+              - path: /
+                backend:
+                  serviceName: kibana
+                  servicePort: 5601
