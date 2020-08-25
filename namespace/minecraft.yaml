@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   labels:
     name: minecraft
-  name: miencraft
+  name: minecraft
