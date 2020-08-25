@@ -23,7 +23,7 @@
           containers:
             - name: fluent-bit
               imagePullPolicy: Always
-              image: fluent/fluent-bit:1.4-debug
+              image: fluent/fluent-bit:latest
               volumeMounts:
                 - name: varlibfluentbit
                   mountPath: /var/lib/fluent-bit/
