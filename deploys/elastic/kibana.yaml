@@ -46,7 +46,6 @@ spec:
     sammastack: kibana
   type: ClusterIP
   ports:
-<<<<<<< HEAD
     - protocol: TCP
       port: 5601
       targetPort: 5601
@@ -78,8 +77,6 @@ spec:
                 backend:
                   serviceName: kibana
                   servicePort: 5601
-=======
   - protocol: TCP
     port: 5601
     targetPort: 5601
->>>>>>> 9347ea061342520dc10e14963dbc76fb448fc175
