@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,21 +18,20 @@ spec:
         sammastack: kibana
     spec:
       containers:
-        - name: kibana
-          image: "docker.elastic.co/kibana/kibana:7.8.0"
-          imagePullPolicy: Always
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "100m"
-            limits:
-              memory: "1G"
-              cpu: "300m"
-          ports:
-            - name: http
-              containerPort: 5601
-              protocol: TCP
-
+      - name: kibana
+        image: "docker.elastic.co/kibana/kibana:7.9-SNAPSHOT"
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1G"
+            cpu: "300m"
+        ports:
+        - name: http
+          containerPort: 5601
+          protocol: TCP
 ---
 apiVersion: v1
 kind: Service
@@ -46,6 +46,7 @@ spec:
     sammastack: kibana
   type: ClusterIP
   ports:
+<<<<<<< HEAD
     - protocol: TCP
       port: 5601
       targetPort: 5601
@@ -77,3 +78,8 @@ spec:
                 backend:
                   serviceName: kibana
                   servicePort: 5601
+=======
+  - protocol: TCP
+    port: 5601
+    targetPort: 5601
+>>>>>>> 9347ea061342520dc10e14963dbc76fb448fc175

@@ -1,0 +1,61 @@
+---
+    apiVersion: apps/v1
+    kind: DaemonSet
+    metadata:
+      name: fluentbit
+      namespace: events
+      labels:
+        app.kubernetes.io/name: fluentbit
+       annotations:
+           fluxcd.io/automated: "true"
+           fluxcd.io/tag.init: regex:^3.10.*
+           fluxcd.io/tag.podinfod: semver:~3.1
+    spec:
+      selector:
+        matchLabels:
+          name: fluentbit
+      template:
+        metadata:
+          labels:
+            name: fluentbit
+        spec:
+          serviceAccountName: fluentbit
+          containers:
+            - name: fluent-bit
+              imagePullPolicy: Always
+              image: fluent/fluent-bit:1.4-debug
+              volumeMounts:
+                - name: varlibfluentbit
+                  mountPath: /var/lib/fluent-bit/
+                - name: varlog
+                  mountPath: /var/log/
+                  readOnly: true
+                - name: varlibdocker
+                  mountPath: /var/lib/docker/containers
+                  readOnly: true
+                - name: fluentbit-config
+                  mountPath: /fluent-bit/etc/
+                - name: parsers-conf
+                  mountPath: /fluent-bit/parsers/
+              resources:
+                limits:
+                  memory: 500Mi
+                requests:
+                  cpu: 100m
+                  memory: 100Mi
+          volumes:
+            - name: varlibfluentbit
+              hostPath:
+                path: /var/lib/fluent-bit
+            - name: varlog
+              hostPath:
+                path: /var/log
+            - name: varlibdocker
+              hostPath:
+                path: /var/lib/docker/containers               
+            - name: fluentbit-config
+              configMap:
+                name: fluentbit-config
+            - name: parsers-conf
+              configMap:
+                name: parsers-conf
