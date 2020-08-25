@@ -27,7 +27,7 @@ metadata:
       fluxcd.io/tag.init: regex:^3.10.*
       fluxcd.io/tag.podinfod: semver:~3.1
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: csgo
