@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minecraft-deployment
+  namespace: minecraft
+  labels:
+    app: mc
+    annotations:
+        fluxcd.io/automated: "true"
+        fluxcd.io/tag.init: regex:^3.10.*
+        fluxcd.io/tag.podinfod: semver:~3.1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mc
+  template:
+    metadata:
+      labels:
+        app: mc
+    spec:
+      containers:
+      - name: minecraft
+        image: itzg/minecraft-server
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "100m"
+          limits:
+            memory: "2048Mi"
+            cpu: "2000m"
+        env:
+        - name: EULA
+          value: "TRUE"
+        - name: MEMORY
+          value: 2G
+        ports:
+          - containerPort: 8123
+        volumeMounts:
+          - mountPath: /data
+            name: data
+      volumes:
+        - name: data
+          nfs:
+            server: 10.100.0.5
+            path: /opt/minecraft/1
+      nodeSelector:
+        cpu: amd64
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: mc-service
+  namespace: minecraft
+  annotations:
+    fluxcd.io/automated: "true"
+    fluxcd.io/tag.init: regex:^3.10.*
+    fluxcd.io/tag.podinfod: semver:~3.1
+spec:
+  type: NodePort
+  selector:
+    app: mc
+  ports:
+  - protocol: TCP
+    nodePort: 32100
+    port: 25565
+    targetPort: 25565
