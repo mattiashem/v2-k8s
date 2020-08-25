@@ -23,7 +23,7 @@ spec:
       containers:
       - name: fluent-bit
         imagePullPolicy: Always
-        image: fluent/fluent-bit:latest
+        image: fluent/fluent-bit:arm64v8-1.5.4
         volumeMounts:
         - name: varlibfluentbit
           mountPath: /var/lib/fluent-bit/
