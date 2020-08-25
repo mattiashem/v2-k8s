@@ -67,8 +67,6 @@ spec:
       - hosts:
         - kibana.home.ollebo.com
         secretName: kibana-tls
-          
-          
       rules:
         - host: kibana.home.ollebo.com
           http:
@@ -77,6 +75,4 @@ spec:
                 backend:
                   serviceName: kibana
                   servicePort: 5601
-  - protocol: TCP
-    port: 5601
-    targetPort: 5601
+
