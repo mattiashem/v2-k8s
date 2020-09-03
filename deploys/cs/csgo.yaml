@@ -12,7 +12,7 @@ data:
   admins_simple.ini: |
     "STEAM_0:1:978447" "z"
     "STEAM_0:0:3314466" "z"
-
+    "STEAM_0:1:36762627" "z"
 ---
 
 apiVersion: apps/v1
@@ -27,7 +27,7 @@ metadata:
       fluxcd.io/tag.init: regex:^3.10.*
       fluxcd.io/tag.podinfod: semver:~3.1
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: csgo
