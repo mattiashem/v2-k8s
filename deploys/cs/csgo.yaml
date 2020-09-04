@@ -51,7 +51,7 @@ spec:
         - name: SRCDS_TICKRATE
           value: "128"
         - name: SRCDS_MAXPLAYERS
-          value: "14"
+          value: "32"
         - name: SRCDS_STARTMAP
           value: "de_dust2"
         - name: SRCDS_REGION
@@ -59,7 +59,7 @@ spec:
         - name: SRCDS_MAPGROUP
           value: "mg_active"
         - name: SRCDS_TOKEN
-          value: "A0D0B622336A2CD1D0D31691463D4235"          
+          value: "1D749CBA51C019E3B4E74464BEC89AAB"          
         volumeMounts:
         - name: config-volume
           mountPath: /home/steam/csgo-dedicated/csgo/addons/sourcemod/configs/admins_simple.ini
