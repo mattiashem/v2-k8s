@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -23,9 +24,9 @@ metadata:
   labels:
     app: csgo
   annotations:
-      fluxcd.io/automated: "true"
-      fluxcd.io/tag.init: regex:^3.10.*
-      fluxcd.io/tag.podinfod: semver:~3.1
+    fluxcd.io/automated: "true"
+    fluxcd.io/tag.init: regex:^3.10.*
+    fluxcd.io/tag.podinfod: semver:~3.1
 spec:
   replicas: 1
   selector:
@@ -38,7 +39,7 @@ spec:
     spec:
       containers:
       - name: csgo
-        image: cm2network/csgo:latest
+        image: cm2network/csgo:sourcemod
         env:
         - name: SRCDS_RCONPW
           value: "akdlassd77hjakshdkj"
@@ -59,16 +60,16 @@ spec:
         - name: SRCDS_MAPGROUP
           value: "mg_active"
         - name: SRCDS_TOKEN
-          value: "1D749CBA51C019E3B4E74464BEC89AAB"          
+          value: "1D749CBA51C019E3B4E74464BEC89AAB"
         volumeMounts:
         - name: config-volume
           mountPath: /home/steam/csgo-dedicated/csgo/addons/sourcemod/configs/admins_simple.ini
           subPath: admins_simple.ini
-  
+
         ports:
-          - containerPort: 27016
-          - containerPort: 27016
-            protocol: UDP
+        - containerPort: 27016
+        - containerPort: 27016
+          protocol: UDP
       nodeSelector:
         cpu: amd64
       volumes:
@@ -77,7 +78,6 @@ spec:
           # Provide the name of the ConfigMap containing the files you want
           # to add to the container
           name: csgo-admin
-
 ---
 
 kind: Service
@@ -98,8 +98,6 @@ spec:
     nodePort: 32220
     port: 27016
     targetPort: 27016
-
-
 ---
 kind: Service
 apiVersion: v1
