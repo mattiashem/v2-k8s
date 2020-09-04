@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
       - name: csgo
-        image: cm2network/csgo:sourcemod
+        image: cm2network/csgo:latest
         env:
         - name: SRCDS_RCONPW
           value: "akdlassd77hjakshdkj"
