@@ -64,7 +64,12 @@ spec:
         - name: config-volume
           mountPath: /home/steam/csgo-dedicated/csgo/addons/sourcemod/configs/admins_simple.ini
           subPath: admins_simple.ini
-  
+        - name: data
+          mountPath: /home/steam/csgo-dedicated/
+          
+
+
+
         ports:
           - containerPort: 27016
           - containerPort: 27016
@@ -77,6 +82,10 @@ spec:
           # Provide the name of the ConfigMap containing the files you want
           # to add to the container
           name: csgo-admin
+      - name: data
+        nfs:
+          server: 10.100.0.5
+          path: /opt/kubernetes/csgo
 
 ---
 
