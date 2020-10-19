@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: samma-stack-elasticsearch
+  name: elasticsearch
   namespace: elastic
   labels:
     sammastack: elasticsearch
