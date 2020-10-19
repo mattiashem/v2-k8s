@@ -59,3 +59,5 @@ spec:
       - name: parsers-conf
         configMap:
           name: parsers-conf
+      nodeSelector:
+        cpu: amd64
