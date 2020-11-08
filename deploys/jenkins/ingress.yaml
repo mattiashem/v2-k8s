@@ -1,0 +1,22 @@
+kind: Ingress
+apiVersion: extensions/v1beta1
+metadata:
+  name: "jenkins"
+  namespace: jenkins
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    #cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    #kubernetes.io/tls-acme: "true"
+spec:
+  #tls:
+  #- hosts:
+  #  - jenkins.home.ollebo.com
+  #  secretName: jenkins
+  rules:
+    - host: jenkins.home.ollebo.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: jenkins-service
+              servicePort: 8080

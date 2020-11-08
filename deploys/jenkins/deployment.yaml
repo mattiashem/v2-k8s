@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins 
+  namespace: jenkins
+  labels:
+    app: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      containers:
+      - name: jenkins
+        image: jenkins/jenkins:lts
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "100m"
+          limits:
+            memory: "4096Mi"
+            cpu: "2000m"
+        env:
+        - name: EULA
+          value: "TRUE"
+        - name: MEMORY
+          value: 3G
+        ports:
+          - containerPort: 8080
+        volumeMounts:
+          - mountPath: /var/jenkins_home
+            name: data
+      volumes:
+        - name: data
+          nfs:
+            server: 10.100.0.5
+            path: /opt/kubernetes/jenkins
+      nodeSelector:
+        cpu: amd64
+
+
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: jenkins-service
+  namespace: jenkins
+spec:
+  type: ClusterIP
+  selector:
+    app: jenkins
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+
+---
+
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: jenkins-node
+  namespace: jenkins
+spec:
+  type: NodePort
+  selector:
+    app: jenkins
+  ports:
+  - protocol: TCP
+    nodePort: 30580
+    port: 8080
+    targetPort: 8080
+
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: jenkins-s
+  namespace: jenkins
+spec:
+  type: NodePort
+  selector:
+    app: jenkins
+  ports:
+  - protocol: TCP
+    nodePort: 30500
+    port: 30500
+    targetPort: 30500
