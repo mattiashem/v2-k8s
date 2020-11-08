@@ -6,10 +6,6 @@ metadata:
   namespace: elastic
   labels:
     sammastack: elasticsearch
-  annotations:
-    fluxcd.io/automated: "true"
-    fluxcd.io/tag.init: regex:^3.10.*
-    fluxcd.io/tag.podinfod: semver:~3.1
 spec:
   replicas: 1
   selector:
@@ -22,7 +18,7 @@ spec:
     spec:
       containers:
       - name: elasticsearch
-        image: "docker.elastic.co/elasticsearch/elasticsearch:7.9-SNAPSHOT-arm64"
+        image: "docker.elastic.co/elasticsearch/elasticsearch:7.9,0"
         imagePullPolicy: Always
         env:
         - name: discovery.type
