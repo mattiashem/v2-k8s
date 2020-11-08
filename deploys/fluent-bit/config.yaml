@@ -3,10 +3,6 @@ kind: ConfigMap
 metadata:
   name: fluentbit-config
   namespace: events
-  annotations:
-    fluxcd.io/automated: "true"
-    fluxcd.io/tag.init: regex:^3.10.*
-    fluxcd.io/tag.podinfod: semver:~3.1
   labels:
     app.kubernetes.io/name: fluentbit
 data:
