@@ -37,11 +37,9 @@ spec:
             name: data
       volumes:
         - name: data
-          hostPath:
-            # directory location on host
-            path: /mnt/plex/minecraft/survival
-            # this field is optional
-            type: Directory
+          nfs:
+            server: 10.100.0.5
+            path: /opt/kubernetes/minecraft/survival
       nodeSelector:
         cpu: amd64
 
