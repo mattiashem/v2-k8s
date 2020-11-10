@@ -6,7 +6,7 @@ metadata:
   labels:
     app: mc-s
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: mc-s
@@ -18,11 +18,20 @@ spec:
       containers:
       - name: minecraft
         image: itzg/minecraft-server
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "100m"
+          limits:
+            memory: "2048Mi"
+            cpu: "2000m"
         env:
         - name: EULA
           value: "TRUE"
+        - name: MEMORY
+          value: 2G
         ports:
-          - containerPort: 8123
+          - containerPort: 25565 
         volumeMounts:
           - mountPath: /data
             name: data
