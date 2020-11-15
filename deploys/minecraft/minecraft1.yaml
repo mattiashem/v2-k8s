@@ -24,13 +24,13 @@ spec:
             memory: "512Mi"
             cpu: "100m"
           limits:
-            memory: "2048Mi"
+            memory: "6G"
             cpu: "2000m"
         env:
         - name: EULA
           value: "TRUE"
         - name: MEMORY
-          value: 2G
+          value: 5G
         ports:
           - containerPort: 8123
         volumeMounts:
