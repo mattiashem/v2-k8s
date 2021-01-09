@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: kibana
-        image: "docker.elastic.co/kibana/kibana:7.9.3"
+        image: "docker.elastic.co/kibana/kibana:7.1.0"
         imagePullPolicy: Always
         resources:
           requests:
