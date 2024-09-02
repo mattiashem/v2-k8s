@@ -1,0 +1,51 @@
+#https://github.com/bitnami/charts/tree/main/bitnami/keycloak/
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: keycloak
+    repoURL: registry-1.docker.io/bitnamicharts
+    targetRevision: 16.0.5
+    helm:
+      releaseName: keycloak
+      values: |
+        auth:
+          adminUser: myadmin
+          existingSecret: keycloak
+          passwordSecretKey: admin-password
+        proxy: edge
+        cache:
+          enabled: true
+        metrics.enabled: true
+        postgresql:
+          enabled: false
+        externalDatabase:
+           existingSecret: core-app
+           host: core-rw
+           user: keycloak
+           database: keycloak
+           existingSecretPasswordKey: password
+        extraEnvVars: |
+           - name: PROXY_ADDRESS_FORWARDING 
+             value: "true"
+           - name: KC_PROXY 
+             value: "edge"
+           - name: KC_HOSTNAME_STRICT_HTTPS 
+             value: "false"
+           - name: KEYCLOAK_PRODUCTION
+             value: "true"
+           - name: KEYCLOAK_EXTRA_ARGS
+             value: "--auto-build"
+           - name: KC_CACHE_STACK
+             value: kubernetes
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: keycloak
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

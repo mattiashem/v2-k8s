@@ -1,0 +1,120 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: prometheus
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 23.3.0
+    helm:
+      releaseName: prometheus
+      values: |
+        alertmanager:
+          enabled: false
+        server:
+          persistentVolume:
+            size: 200Gi
+          statefulSet:
+            ## If true, use a statefulset instead of a deployment for pod management.
+            ## This allows to scale replicas to more than 1 pod
+            ##
+            enabled: true
+          extraFlags:
+            - storage.tsdb.retention.size=150GB
+          resources: 
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          ## Prometheus data retention period (default if not specified is 15 days)
+          ##
+          retention: ""
+          ## Prometheus' data retention size. Supported units: B, KB, MB, GB, TB, PB, EB.
+          ##
+          retentionSize: "150GB"
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: metrics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-state
+  namespace: argocd
+spec:
+  project: plattform
+  source:
+    chart: kube-state-metrics
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 5.10.1
+    helm:
+      releaseName: kube-state-metrics
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: metrics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+#https://github.com/grafana/helm-charts/blob/main/charts/grafana/README.md
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: plattform
+  source:
+    chart: grafana
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 6.58.9
+    helm:
+      releaseName: grafana
+      values: |
+        env:
+          GF_DATABASE_TYPE: "postgres"
+          GF_DATABASE_HOST: "grafana-rw"
+          GF_DATABASE_NAME: "grafana"
+          GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+          GF_AUTH_GENERIC_OAUTH_NAME: "Login Keycloak"
+          GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
+          GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"          
+          GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "qnlBD8yi3jknfjPCJpNtpyOQEEepXxPa"
+          GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email groupe"
+          GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_NAME: "email:primary"
+          GF_SERVER_ROOT_URL: https://grafana.int.getgifted.com
+          GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://auth.prod2.getgifted.com/realms/master/protocol/openid-connect/auth"
+          GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://auth.prod2.getgifted.com/realms/master/protocol/openid-connect/token"
+          GF_AUTH_GENERIC_OAUTH_API_URL: "https://auth.prod2.getgifted.com/realms/master/protocol/openid-connect/userinfo"
+          GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], '/GrafanaAdmin') && 'Admin' || contains(groups[*], '/GrafanaEdit') && 'Editor' || 'Viewer'"
+
+        envValueFrom:
+          GF_DATABASE_PASSWORD:
+              secretKeyRef:
+                name: grafana-app
+                key: password
+          GF_DATABASE_USER:
+              secretKeyRef:
+                name: grafana-app
+                key: username
+          GF_SECURITY_ADMIN_PASSWORD:
+              secretKeyRef:
+                name: grafana-app
+                key: password
+        persistence:
+          enabled: false
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: metrics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

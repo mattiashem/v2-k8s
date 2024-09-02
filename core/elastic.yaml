@@ -1,0 +1,86 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: elastic-operator
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: eck-operator
+    repoURL: https://helm.elastic.co
+    targetRevision: 2.9.0
+    helm:
+      releaseName: elastic-operator
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: elastic-system
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+  namespace: elastic-system
+spec:
+  version: 8.10.0
+  nodeSets:
+  - name: data
+    count: 2
+    podTemplate:
+      spec:
+        containers:
+        - name: elasticsearch
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Gi
+    config:
+      node.store.allow_mmap: false
+      indices:
+        breaker:
+          total.use_real_memory : "false"
+          fielddata.limit: "70%"
+          request.limit: "60%"
+        fielddata.cache.size:  "60%"
+      cluster.max_shards_per_node: "5000"
+      node.roles: ["data","ingest","transform","data_hot","data_warm","data_content","remote_cluster_client"]
+      xpack.ml.enabled: true
+  - name: master
+    count: 3
+    config:
+      node.roles: ["master"]
+
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+
+---
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+  namespace: elastic-system
+spec:
+  version: 8.10.0
+  count: 1
+  elasticsearchRef:
+    name: elasticsearch
+  podTemplate:
+    metadata:
+      creationTimestamp: null
+    spec:
+      containers:
+      - name: kibana
