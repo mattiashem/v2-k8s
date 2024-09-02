@@ -79,7 +79,6 @@ spec:
     helm:
       releaseName: grafana
       values: |
-        env:
         persistence:
           enabled: true
 
