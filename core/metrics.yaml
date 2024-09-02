@@ -50,7 +50,7 @@ metadata:
   name: kube-state
   namespace: argocd
 spec:
-  project: plattform
+  project: core
   source:
     chart: kube-state-metrics
     repoURL: https://prometheus-community.github.io/helm-charts
@@ -71,7 +71,7 @@ metadata:
   name: grafana
   namespace: argocd
 spec:
-  project: plattform
+  project: core
   source:
     chart: grafana
     repoURL: https://grafana.github.io/helm-charts
