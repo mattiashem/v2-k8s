@@ -79,36 +79,6 @@ spec:
     helm:
       releaseName: grafana
       values: |
-        env:
-          GF_DATABASE_TYPE: "postgres"
-          GF_DATABASE_HOST: "grafana-rw"
-          GF_DATABASE_NAME: "grafana"
-          GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
-          GF_AUTH_GENERIC_OAUTH_NAME: "Login Keycloak"
-          GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
-          GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"          
-          GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "qnlBD8yi3jknfjPCJpNtpyOQEEepXxPa"
-          GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email groupe"
-          GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_NAME: "email:primary"
-          GF_SERVER_ROOT_URL: https://grafana.int.getgifted.com
-          GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://auth.prod2.getgifted.com/realms/master/protocol/openid-connect/auth"
-          GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://auth.prod2.getgifted.com/realms/master/protocol/openid-connect/token"
-          GF_AUTH_GENERIC_OAUTH_API_URL: "https://auth.prod2.getgifted.com/realms/master/protocol/openid-connect/userinfo"
-          GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], '/GrafanaAdmin') && 'Admin' || contains(groups[*], '/GrafanaEdit') && 'Editor' || 'Viewer'"
-
-        envValueFrom:
-          GF_DATABASE_PASSWORD:
-              secretKeyRef:
-                name: grafana-app
-                key: password
-          GF_DATABASE_USER:
-              secretKeyRef:
-                name: grafana-app
-                key: username
-          GF_SECURITY_ADMIN_PASSWORD:
-              secretKeyRef:
-                name: grafana-app
-                key: password
         persistence:
           enabled: false
 
