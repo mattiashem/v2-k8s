@@ -78,9 +78,6 @@ spec:
     targetRevision: 6.58.9
     helm:
       releaseName: grafana
-      values: |
-        persistence:
-          enabled: false
 
   destination:
     server: "https://kubernetes.default.svc"
