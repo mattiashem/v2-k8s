@@ -34,4 +34,28 @@ spec:
       name: addresspools.metallb.io
       jsonPointers:
       - /spec/conversion/webhook/clientConfig/caBundle
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: lan
+  namespace: metallb-system
+spec:
+  addresses:
+  - 10.0.0.100/32
+  - 10.0.0.101/32
+  - 10.0.0.102/32
+  - 10.0.0.103/32
+  - 10.0.0.104/32
+  - 10.0.0.105/32
+  - 10.0.0.106/32
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: ip
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - lan
 
