@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+spec:
+i  project: core
+  source:
+    chart: traefik
+    repoURL: https://traefik.github.io/charts
+    targetRevision: 24.0.0
+    helm:
+      releaseName: traefik
+      values: |
+        service.type: ClusterIP
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: traefik
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+
