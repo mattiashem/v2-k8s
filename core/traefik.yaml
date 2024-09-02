@@ -4,7 +4,7 @@ metadata:
   name: traefik
   namespace: argocd
 spec:
-i  project: core
+  project: core
   source:
     chart: traefik
     repoURL: https://traefik.github.io/charts
