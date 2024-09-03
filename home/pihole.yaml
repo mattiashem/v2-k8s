@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pihole-etc
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
+spec:
+  storageClassName: truenas-iscsi-nonroot
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pihole-dnsmasq
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
+spec:
+  storageClassName: truenas-iscsi-nonroot
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pihole
+  namespace: home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pihole
+  template:
+    metadata:
+      labels:
+        app: pihole
+    spec:
+      containers:
+        - name: pihole
+          # https://hub.docker.com/r/pihole/pihole/tags
+          image: pihole/pihole:2021.10
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TZ
+              value: "America/Los_Angeles"
+            - name: WEBPASSWORD
+              value: "v2password"
+          securityContext:
+            privileged: true
+          ports:
+            - containerPort: 53
+              protocol: TCP
+            - containerPort: 53
+              protocol: UDP
+            - containerPort: 67
+              protocol: UDP
+            - containerPort: 80
+              protocol: TCP
+            - containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - name: etc
+              mountPath: /etc/pihole
+            - name: dnsmasq
+              mountPath: /etc/dnsmasq.d
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 2Gi
+              cpu: 1
+      volumes:
+        - name: etc
+          persistentVolumeClaim:
+            claimName: pihole-etc
+        - name: dnsmasq
+          persistentVolumeClaim:
+            claimName: pihole-dnsmasq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pihole
+  name: pihole
+  namespace: home
+spec:
+  ports:
+  - name: dns
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  - name: web
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: pihole
+  sessionAffinity: None
+  type: ClusterIP
