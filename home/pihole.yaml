@@ -54,8 +54,8 @@ spec:
               value: "America/Los_Angeles"
             - name: WEBPASSWORD
               value: "v2password"
-          securityContext:
-            privileged: true
+          #securityContext:
+          #  privileged: true
           ports:
             - containerPort: 53
               protocol: TCP
