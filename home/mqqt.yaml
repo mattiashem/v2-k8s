@@ -23,15 +23,12 @@ spec:
         - mountPath: /mosquitto/config/mosquitto.conf
           subPath: mosquitto.conf
           name: config
-        - mountPath: /mosquitto/certs/
-          name: certs
+
       volumes:
       - name: config
         configMap:
           name: mosquitto-config
-      - name: certs
-        secret:
-          secretName: mosquitto-certs
+
 ---
 apiVersion: v1
 kind: ConfigMap
