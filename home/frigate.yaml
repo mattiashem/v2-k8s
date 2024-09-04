@@ -13,10 +13,12 @@ spec:
     helm:
       releaseName: frigate
       values: |
-        coral.enabled: true
-        persistence.media:
-          enabled: true
-          size: 1000Gi
+        coral:
+          enabled: false
+        persistence:
+          media:
+            enabled: true
+            size: 1000Gi
         config: |
           mqtt:
             host: "mqtt.example.com"
