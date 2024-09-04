@@ -29,49 +29,44 @@ spec:
       labels:
         app: homeassistant
     spec:
-    containers:
-      - name: homeassistant
-        image: homeassistant/home-assistant
-        imagePullPolicy: Always
-        volumeMounts:
+      containers:
         - name: homeassistant
-          mountPath: /config
-        - name: localtime
-          mountPath: /etc/localtime
-        - name: dev-zwave
-          mountPath: /dev/usbzwave
-        - name: dev-insteon
-          mountPath: /dev/usbinsteon
-        securityContext:
-          privileged: true
-      - name: appdaemon
-        image: mezz64/appdaemon
-        imagePullPolicy: Always
-        volumeMounts:
-        - name: appdaemon
-          mountPath: /conf
-        - name: localtime
-          mountPath: /etc/localtime
+          # https://hub.docker.com/r/pihole/pihole/tags
+          image: homeassistant/home-assistant
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TZ
+              value: "America/Los_Angeles"
+            - name: WEBPASSWORD
+              value: "v2password"
+          #securityContext:
+          #  privileged: true
+          ports:
+            - containerPort: 8123
+              protocol: TCP
+          volumeMounts:
+             - name: homeassistant
+               mountPath: /config
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 2Gi
+              cpu: 1000m
       volumes:
-      - name: homeassistant
-        persistentVolumeClaim:
-          claimName: homeassistant
-      #- name: hadashboard
-      #  persistentVolumeClaim:
-      #    claimName: hadashboard
-      #- name: hapush
-      #  persistentVolumeClaim:
-      #    claimName: hapush
-      - name: localtime
-        hostPath:
-          path: /etc/localtime
-      #- name: dev-zwave
-      #  hostPath:
-      #    path: /dev/usbzwave
-      #- name: dev-insteon
-      #  hostPath:
-      #    path: /dev/usbinsteon
----
+        - name: homeassistant
+          persistentVolumeClaim:
+            claimName: homeassistant
+        #- name: dev-zwave
+        #  hostPath:
+        #    path: /dev/usbzwave
+        #- name: dev-insteon
+        #  hostPath:
+        #    path: /dev/usbinsteon
+
+
+---  
 apiVersion: v1
 kind: Service
 metadata:
