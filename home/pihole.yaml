@@ -100,7 +100,7 @@ spec:
     port: 53
     protocol: TCP
     targetPort: 53
-  - name: dns
+  - name: dnsudp
     port: 53
     protocol: UDP
     targetPort: 53
