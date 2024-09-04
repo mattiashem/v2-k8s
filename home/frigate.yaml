@@ -1,0 +1,41 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frigate
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: frigate
+    repoURL: https://blakeblackshear.github.io/blakeshome-charts/
+    targetRevision: 7.5.1
+    helm:
+      releaseName: frigate
+      values: |
+        coral.enabled: true
+        persistence.media:
+          enabled: true
+          size: 1000Gi
+        config: |
+          mqtt:
+            host: "mqtt.example.com"
+            port: 1883
+            user: admin
+            password: "<your_mqtt_password>"
+          cameras:
+            # Define at least one camera
+            back:
+              ffmpeg:
+                inputs:
+                  - path: rtsp://viewer:{FRIGATE_RTSP_PASSWORD}@10.0.10.10:554/cam/realmonitor?channel=1&subtype=2
+                    roles:
+                      - detect
+
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: traefik
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+
