@@ -12,33 +12,31 @@ spec:
     helm:
       releaseName: traefik
       values: |
-          traefik:
-            image:
-              registry: docker.io
-              repository: traefik
-              # defaults to appVersion
-            deployment:
-              replicas: 1
-            additionalArguments:
-              - "--api.insecure=true"
-              - "--serversTransport.insecureSkipVerify=true"
-            providers:
-              kubernetesCRD:
-                enabled: true
-                allowCrossNamespace: true
-                allowExternalNameServices: true
-                allowEmptyServices: true
-              kubernetesIngress:
-                enabled: true
-                allowExternalNameServices: true
-                allowEmptyServices: true
-            service:
-              annotations:
-                service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-                external-dns.alpha.kubernetes.io/hostname: lb.home.ollebo.com
-              type: LoadBalancer
-              metallb.universe.tf/ip-allocated-from-pool: lan
-
+        image:
+          registry: docker.io
+          repository: traefik
+          # defaults to appVersion
+        deployment:
+          replicas: 1
+        additionalArguments:
+          - "--api.insecure=true"
+          - "--serversTransport.insecureSkipVerify=true"
+        providers:
+          kubernetesCRD:
+            enabled: true
+            allowCrossNamespace: true
+            allowExternalNameServices: true
+            allowEmptyServices: true
+          kubernetesIngress:
+            enabled: true
+            allowExternalNameServices: true
+            allowEmptyServices: true
+        service:
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+            external-dns.alpha.kubernetes.io/hostname: lb.home.ollebo.com
+          type: LoadBalancer
+          metallb.universe.tf/ip-allocated-from-pool: lan
 
 
 
