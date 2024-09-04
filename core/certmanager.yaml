@@ -10,7 +10,7 @@ metadata:
     owner: plattform
     synced: "yes"
 spec:
-  project: plattform
+  project: core
   source:
     chart: cert-manager
     repoURL: https://charts.jetstack.io
