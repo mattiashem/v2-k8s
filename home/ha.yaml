@@ -28,7 +28,8 @@ spec:
     metadata:
       labels:
         app: homeassistant
-      containers:
+    spec:
+    containers:
       - name: homeassistant
         image: homeassistant/home-assistant
         imagePullPolicy: Always
