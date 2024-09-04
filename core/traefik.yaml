@@ -8,7 +8,7 @@ spec:
   source:
     chart: traefik
     repoURL: https://traefik.github.io/charts
-    targetRevision: 24.0.0
+    targetRevision: 31.0.0
     helm:
       releaseName: traefik
       values: |
@@ -33,13 +33,9 @@ spec:
             allowEmptyServices: true
         service:
           annotations:
-            service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
             external-dns.alpha.kubernetes.io/hostname: lb.home.ollebo.com
+            metallb.universe.tf/ip-allocated-from-pool: lan
           type: LoadBalancer
-          metallb.universe.tf/ip-allocated-from-pool: lan
-
-
-
   destination:
     server: "https://kubernetes.default.svc"
     namespace: traefik
