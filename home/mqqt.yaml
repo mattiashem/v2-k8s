@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto
+        ports:
+        - containerPort: 8883
+        - containerPort: 9001
+        volumeMounts:
+        - mountPath: /mosquitto/config/mosquitto.conf
+          subPath: mosquitto.conf
+          name: config
+        - mountPath: /mosquitto/certs/
+          name: certs
+      volumes:
+      - name: config
+        configMap:
+          name: mosquitto-config
+      - name: certs
+        secret:
+          secretName: mosquitto-certs
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: home
+data:
+  mosquitto.conf: |
+    # DO NOT USE IN PRODUCTION
+    allow_anonymous true
+
+    # MQTT with TLS (MQTTS)
+    listener 1883
+    protocol mqtt
+
+    # Fetch the generated certificates
+    #cafile /etc/ssl/certs/ca-certificates.crt
+    #keyfile /mosquitto/certs/tls.key
+    #certfile /mosquitto/certs/tls.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto-mqtts
+  namespace: home
+spec:
+  type: ClusterIP
+  selector:
+    app: mosquitto  
+  ports:
+  - port: 8883
