@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nats
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: nats
+    repoURL: https://nats-io.github.io/k8s/helm/charts/
+    targetRevision: 1.2.0
+    helm:
+      releaseName: nats
+      values: |
+        config:
+          cluster:
+            enabled: true
+            replicas: 3
+          jetstream:
+            enabled: true
+            fileStore:
+              pvc:
+                size: 10Gi
+          container:
+            env:
+              # different from k8s units, suffix must be B, KiB, MiB, GiB, or TiB
+              # should be ~90% of memory limit
+              OFF_GOMEMLIMIT: 1GiB
+            merge:
+              # recommended limit is at least 2 CPU cores and 8Gi Memory for production JetStream clusters
+              resources:
+                requests:
+                  cpu: "300m"
+                  memory: 256Mi
+                limits:
+                  cpu: "500m"
+                  memory: 1Gi
+          promExporter:
+            enabled: true
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: code
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

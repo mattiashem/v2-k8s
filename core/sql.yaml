@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mysql-operator
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: mysql-operator
+    repoURL: https://helm-charts.bitpoke.io
+    targetRevision: 0.6.3
+    helm:
+      releaseName: mysql-operator
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: sql
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,42 @@
+apiVersion: mysql.presslabs.org/v1alpha1
+kind: MysqlCluster
+metadata:
+  name: main
+  namespace: code
+spec:
+  replicas: 1
+  secretName: mysql-cluster
+  mysqlVersion: "8.0"
+  podSpec:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+  volumeSpec:
+    persistentVolumeClaim:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 20Gi
+
+---
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+data:
+  DATABASE: bXlzcWw=
+  PASSWORD: bXlzcWw=
+  ROOT_PASSWORD: YXN5ZDU2NzVhaHNrZGhrYQ==
+  USER: bXlzcWw=
+kind: Secret
+metadata:
+  annotations:
+     creationTimestamp: "2023-10-03T17:36:06Z"
+  name: mysql-cluster
+  namespace: code
+type: Opaque

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adminer
+  namespace: code
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adminer
+  template:
+    metadata:
+      name: adminer
+      labels:
+        app: adminer
+    spec:
+      containers:
+      - name: adminer
+        image: adminer
+        ports:
+        - name: adminer
+          containerPort: 8080
+        env:
+        - name: PMA_HOST
+          value: main-mysql
+        - name: UPLOAD_LIMIT
+          value: 1G
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: adminer
+  namespace: code
+spec:
+  selector:
+    app: adminer
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

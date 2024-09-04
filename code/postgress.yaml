@@ -1,0 +1,37 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: code
+  namespace: core
+spec:
+  instances: 1
+  imageName: ollebo/db:14.1
+  bootstrap:
+    initdb:
+      database: ollebo
+      owner: ollebo 
+      postInitTemplateSQL:
+        - CREATE EXTENSION postgis;
+        - CREATE EXTENSION postgis_topology;
+        - CREATE EXTENSION fuzzystrmatch;
+        - CREATE EXTENSION postgis_tiger_geocoder;
+  storage:
+    size: 30Gi
+  monitoring:
+    enablePodMonitor: true
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak
+  namespace: code
+spec:
+  instances: 1
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+  storage:
+    size: 10Gi
+  monitoring:
+    enablePodMonitor: true
