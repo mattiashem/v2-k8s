@@ -90,6 +90,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    metallb.universe.tf/allow-shared-ip: pihole
+    external-dns.alpha.kubernetes.io/hostname: pihole.socomp.se
   labels:
     app: pihole
   name: pihole
@@ -108,6 +111,30 @@ spec:
     port: 80
     protocol: TCP
     targetPort: 80
+  selector:
+    app: pihole
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    metallb.universe.tf/allow-shared-ip: pihole-lan
+  labels:
+    app: pihole
+  name: pihole-lan
+  namespace: home
+spec:
+  ports:
+  - name: dns
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: dnsudp
+    port: 53
+    protocol: UDP
+    targetPort: 53
   selector:
     app: pihole
   sessionAffinity: None
