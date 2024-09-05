@@ -114,7 +114,7 @@ spec:
   selector:
     app: pihole
   sessionAffinity: None
-  type: ClusterIP
+  type: LoadBalancer
 ---
 apiVersion: v1
 kind: Service
@@ -138,4 +138,4 @@ spec:
   selector:
     app: pihole
   sessionAffinity: None
-  type: ClusterIP
+  type: LoadBalancer
