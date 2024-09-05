@@ -33,7 +33,7 @@ spec:
             allowEmptyServices: true
         service:
           annotations:
-            external-dns.alpha.kubernetes.io/hostname: lb.home.ollebo.com
+            external-dns.alpha.kubernetes.io/hostname: lb.v2.socomp.se
             metallb.universe.tf/ip-allocated-from-pool: lan
           type: LoadBalancer
   destination:
