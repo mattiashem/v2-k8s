@@ -38,7 +38,7 @@ spec:
           type: LoadBalancer
   destination:
     server: "https://kubernetes.default.svc"
-    namespace: traefik
+    namespace: frigate
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
