@@ -51,7 +51,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: TZ
-              value: "America/Los_Angeles"
+              value: "Europe/Stockholm"
             - name: WEBPASSWORD
               value: "v2password"
           #securityContext:
