@@ -47,6 +47,52 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  name: node-exporter
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: prometheus-node-exporter
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 4.39.0
+    helm:
+      releaseName: prometheus-node-exporter
+      values: |
+        alertmanager:
+          enabled: false
+        server:
+          persistentVolume:
+            size: 200Gi
+          statefulSet:
+            ## If true, use a statefulset instead of a deployment for pod management.
+            ## This allows to scale replicas to more than 1 pod
+            ##
+            enabled: true
+          extraFlags:
+            - storage.tsdb.retention.size=150GB
+          resources: 
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          ## Prometheus data retention period (default if not specified is 15 days)
+          ##
+          retention: ""
+          ## Prometheus' data retention size. Supported units: B, KB, MB, GB, TB, PB, EB.
+          ##
+          retentionSize: "150GB"
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: metrics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
   name: kube-state
   namespace: argocd
 spec:
