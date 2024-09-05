@@ -13,8 +13,10 @@ spec:
     helm:
       releaseName: frigate
       values: |
+        nodeSelector:
+          coral: "yes"
         coral:
-          enabled: false
+          enabled: yes
         env:
           FRIGATE_RTSP_PASSWORD: "rtsgtff"
         persistence:
