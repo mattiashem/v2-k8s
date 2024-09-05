@@ -47,7 +47,7 @@ spec:
       containers:
         - name: pihole
           # https://hub.docker.com/r/pihole/pihole/tags
-          image: pihole/pihole:2021.10
+          image: pihole/pihole:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: TZ
