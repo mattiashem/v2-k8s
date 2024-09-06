@@ -114,7 +114,9 @@ kind: Service
 metadata:
   name: mikrotik-exporter
   namespace: home
-spec:
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '49090'
   type: ClusterIP
   selector:
     app: mikrotik-exporter  
