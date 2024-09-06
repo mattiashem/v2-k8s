@@ -97,7 +97,8 @@ spec:
         - containerPort: 49090 
         volumeMounts:
         - name: config
-          mountPath: /home/mktxp/mktxp/
+          mountPath: /home/mktxp/mktxp/mktxp.conf
+          subPath: mktxp.conf
       volumes:
         - name: config
           projected:
