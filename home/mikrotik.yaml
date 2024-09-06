@@ -90,6 +90,8 @@ spec:
       labels:
         app: mikrotik-exporter
     spec:
+      securityContext:
+        runAsUser: 0
       containers:
       - name: mikrotik-exporter
         image: ghcr.io/akpw/mktxp:latest
