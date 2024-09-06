@@ -98,7 +98,6 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /home/mktxp/mktxp/
-          readOnly: true
       volumes:
         - name: config
           projected:
