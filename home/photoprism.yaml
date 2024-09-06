@@ -12,6 +12,52 @@ stringData:
   PHOTOPRISM_ADMIN_PASSWORD: v2Passswords
   PHOTOPRISM_DATABASE_DSN: username:password@tcp(db-server-address:3306)/dbname?charset=utf8mb4,utf8&parseTime=true
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: photoprism-import
+  namespace: photoprism
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
+spec:
+  storageClassName: truenas-iscsi-nonroot
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: photoprism-orginal
+  namespace: photoprism
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
+spec:
+  storageClassName: truenas-iscsi-nonroot
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: photoprism-storage
+  namespace: photoprism
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
+spec:
+  storageClassName: truenas-iscsi-nonroot
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -61,24 +107,24 @@ spec:
             port: http
       volumes:
       - name: originals
-        nfs:
-          path: /originals
-          # readOnly: true # Disables import and upload!
-          server: my.nas.host
+        persistentVolumeClaim:
+          claimName: photoprism-orginal
       - name: import
-        nfs:
-          path: /import
-          server: my.nas.host
+        persistentVolumeClaim:
+          claimName: photoprism-import
       - name: storage
-        nfs:
-          path: /storage
-          server: my.nas.host
+        persistentVolumeClaim:
+          claimName: photoprism-storage
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: photoprism
   namespace: photoprism
+  annotations:  
+    external-dns.alpha.kubernetes.io/hostname: photo.socomp.se
+    metallb.universe.tf/ip-allocated-from-pool: lan
 spec:
   ports:
   - name: http
@@ -89,32 +135,3 @@ spec:
     app: photoprism
   type: LoadBalancer
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  annotations:
-    # For nginx ingress controller:
-    kubernetes.io/ingress.class: nginx
-    # Default is very low so most photo uploads will fail:
-    nginx.ingress.kubernetes.io/proxy-body-size: "512M"
-    # If using cert-manager:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    kubernetes.io/tls-acme: "true"
-  name: photoprism
-  namespace: photoprism
-spec:
-  rules:
-  - host: photoprism.my.domain
-    http:
-      paths:
-      - backend:
-          service:
-            name: photoprism
-            port:
-              name: http
-        path: /
-        pathType: Prefix
-  tls:
-  - hosts:
-    - photoprism.my.domain
-    secretName: photoprism-cert

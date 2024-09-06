@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mikrotik-exporter
+  namespace: home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mikrotik-exporter
+  template:
+    metadata:
+      labels:
+        app: mikrotik-exporter
+    spec:
+      containers:
+      - name: mosquitto
+        image: hatamiarash7/mikrotik-exporter
+        ports:
+        - containerPort: 9436
+        env:
+        - name: ADDRESS
+          value: "192.168.1.1"
+        - name: USER
+          value: "prometheus"
+        - name: PASS 
+          value: "password"
+        - name:  DEVICE
+          value: "main-fw"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mikrotik-exporter
+  namespace: home
+spec:
+  type: ClusterIP
+  selector:
+    app: mikrotik-exporter  
+  ports:
+  - port: 9436
