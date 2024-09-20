@@ -117,6 +117,7 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
     prometheus.io/port: '49090'
+
   type: ClusterIP
   selector:
     app: mikrotik-exporter  

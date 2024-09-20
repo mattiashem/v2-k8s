@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: github-runners
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: actions-runner-controller
+    repoURL: https://actions-runner-controller.github.io/actions-runner-controller
+    targetRevision: 0.23.7
+    helm:
+      releaseName: actions-runner-controller
+      values: |
+        authSecret:
+          create: true
+          github_token: "REPLACE_YOUR_TOKEN_HERE"
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: metrics
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: ollebo-runnerdeploy
+spec:
+  replicas: 1
+  template:
+    spec:
+      repository: mumoshu/actions-runner-controller-ci
