@@ -14,7 +14,7 @@ spec:
       values: |
         authSecret:
           create: true
-          github_token: "REPLACE_YOUR_TOKEN_HERE"
+          github_token: "512be751-4d9d-4c59-acd5-33b5cca06250"
   destination:
     server: "https://kubernetes.default.svc"
     namespace: metrics
