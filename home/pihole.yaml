@@ -39,12 +39,29 @@ spec:
   selector:
     matchLabels:
       app: pihole
+      number: "1"
   template:
     metadata:
       labels:
         app: pihole
+        number: "1"
     spec:
       containers:
+        - name: orbital
+          # https://hub.docker.com/r/pihole/pihole/tags
+          image: mattwebbio/orbital-sync:1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PRIMARY_HOST_BASE_URL
+              value: "http://127.0.0.1"
+            - name: PRIMARY_HOST_PASSWORD
+              value: "v2password"
+            - name: SECONDARY_HOSTS_1_BASE_URL
+              value: "http://pihole-2"
+            - name: SECONDARY_HOSTS_1_PASSWORD
+              value: "v2password"
+            - name: INTERVAL_MINUTES
+              value: "5"
         - name: pihole
           # https://hub.docker.com/r/pihole/pihole/tags
           image: pihole/pihole:latest
@@ -91,13 +108,15 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    metallb.universe.tf/ip-allocated-from-pool: pihole
+    metallb.universe.tf/ip-allocated-from-pool: pihole-lan2
     external-dns.alpha.kubernetes.io/hostname: pihole.socomp.se
   labels:
     app: pihole
   name: pihole
   namespace: home
 spec:
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Cluster
   ports:
   - name: dns
     port: 53
@@ -126,6 +145,8 @@ metadata:
   name: pihole-lan
   namespace: home
 spec:
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Cluster
   ports:
   - name: dns
     port: 53
@@ -139,3 +160,132 @@ spec:
     app: pihole
   sessionAffinity: None
   type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    metallb.universe.tf/ip-allocated-from-pool: pihole
+  labels:
+    app: pihole
+  name: pihole-dmz
+  namespace: home
+spec:
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: dns
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: dnsudp
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  selector:
+    app: pihole
+  sessionAffinity: None
+  type: LoadBalancer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pihole-2
+  namespace: home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pihole
+      number: "2"
+  template:
+    metadata:
+      labels:
+        app: pihole
+        number: "2"
+    spec:
+      containers:
+        - name: pihole
+          # https://hub.docker.com/r/pihole/pihole/tags
+          image: pihole/pihole:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TZ
+              value: "Europe/Stockholm"
+            - name: WEBPASSWORD
+              value: "v2password"
+          #securityContext:
+          #  privileged: true
+          ports:
+            - containerPort: 53
+              protocol: TCP
+            - containerPort: 53
+              protocol: UDP
+            - containerPort: 67
+              protocol: UDP
+            - containerPort: 80
+              protocol: TCP
+            - containerPort: 443
+              protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    metallb.universe.tf/ip-allocated-from-pool: lan
+  labels:
+    app: pihole
+    number: "2"
+  name: pihole-2
+  namespace: home
+spec:
+  ports:
+  - name: dns
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: dnsudp
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  - name: web
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: pihole
+    number: "2"
+  sessionAffinity: None
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    metallb.universe.tf/ip-allocated-from-pool: lan
+  labels:
+    app: pihole
+    number: "1"
+  name: pihole-1
+  namespace: home
+spec:
+  ports:
+  - name: dns
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: dnsudp
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  - name: web
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: pihole
+    number: "1"
+  sessionAffinity: None
+  type: LoadBalancer
+

@@ -10,7 +10,7 @@ metadata:
   namespace: photoprism
 stringData:
   PHOTOPRISM_ADMIN_PASSWORD: v2Passswords
-  PHOTOPRISM_DATABASE_DSN: username:password@tcp(db-server-address:3306)/dbname?charset=utf8mb4,utf8&parseTime=true
+  PHOTOPRISM_DATABASE_DSN: prisma:prisma@tcp(maria.home.svc:3306)/prisma?charset=utf8mb4,utf8&parseTime=true
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -25,7 +25,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 500Mi
+      storage: 1000Gi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -40,7 +40,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 500Mi
+      storage: 3000Gi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -55,7 +55,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 500Mi
+      storage: 2Gi
 
 ---
 apiVersion: apps/v1
@@ -124,7 +124,7 @@ metadata:
   namespace: photoprism
   annotations:  
     external-dns.alpha.kubernetes.io/hostname: photo.socomp.se
-    metallb.universe.tf/ip-allocated-from-pool: lan
+    metallb.universe.tf/address-pool: lan
 spec:
   ports:
   - name: http
