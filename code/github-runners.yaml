@@ -34,3 +34,16 @@ spec:
   template:
     spec:
       organization: ollebo
+---
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: ollebo-runnerdeploy-arm
+  namespace: metrics
+spec:
+  replicas: 1
+  nodeSelector:
+    beta.kubernetes.io/arch: arm
+  template:
+    spec:
+      organization: ollebo
