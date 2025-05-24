@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: freerss
+  namespace: code
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
+spec:
+  storageClassName: truenas-iscsi-nonroot
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freerss
+  namespace: code
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: freerss
+  template:
+    metadata:
+      name: freerss
+      labels:
+        app: freerss
+    spec:
+      containers:
+      - name: freerss
+        image: lscr.io/linuxserver/freshrss:latest
+        volumeMounts:
+           - name: freerss
+             mountPath: /config
+        ports:
+        - name: webb
+          containerPort: 80
+        env:
+          - name: PUID
+            value: "1000"
+          - name: PGID
+            value: "1000"
+          - name: TZ
+            value: "Etc/UTC"
+      volumes:
+        - name: freerss
+          persistentVolumeClaim:
+            claimName: freerss
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: freerss
+  namespace: code
+spec:
+  selector:
+    app: freerss
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: home-ollebo-com
+    external-dns.alpha.kubernetes.io/hostname: freerss.socomp.se
+    external-dns.alpha.kubernetes.io/target: lb.v2.socomp.se
+    kubernetes.io/ingress.class: traefik
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  generation: 3
+  name: freerss
+  namespace: code
+spec:
+  rules:
+  - host: freerss.socomp.se
+    http:
+      paths:
+      - backend:
+          service:
+            name: freerss
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - freerss.socomp.se
+    secretName: freerss-tls

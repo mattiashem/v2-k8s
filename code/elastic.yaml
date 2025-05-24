@@ -1,0 +1,62 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+  namespace: code
+spec:
+  version: 8.16.0
+  nodeSets:
+  - name: master
+    count: 3
+    config:
+      node.roles: ["master","data","ingest","transform","data_hot","data_warm","data_content","remote_cluster_client"]
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 50Gi
+---
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+  namespace: code
+spec:
+  version: 8.16.0
+  count: 1
+  elasticsearchRef:
+    name: elasticsearch
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: home-ollebo-com
+    external-dns.alpha.kubernetes.io/hostname: kibana.socomp.se
+    external-dns.alpha.kubernetes.io/target: lb.v2.socomp.se
+    kubernetes.io/ingress.class: traefik
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  generation: 3
+  name: kibana
+  namespace: code
+spec:
+  rules:
+  - host: kibana.socomp.se
+    http:
+      paths:
+      - backend:
+          service:
+            name: kibana-kb-http
+            port:
+              number: 5601
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - kibana.socomp.se
+    secretName: kibana-tls

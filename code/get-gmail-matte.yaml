@@ -1,0 +1,76 @@
+kind: Secret
+type: Opaque
+apiVersion: v1
+stringData:
+  AWS_ACCESS_KEY_ID: "REDACTED"
+  AWS_SECRET_ACCESS_KEY: "REDACTED"
+  BUCKET: "gmail-matte"
+metadata:
+  name: matte-gmail
+  namespace: code
+---
+kind: Secret
+type: Opaque
+apiVersion: v1
+stringData:
+  token.json: |
+    {"token": "REDACTED", "refresh_token": "REDACTED", "token_uri": "https://oauth2.googleapis.com/token", "client_id": "REDACTED", "client_secret": "REDACTED", "scopes": ["https://www.googleapis.com/auth/gmail.readonly"], "universe_domain": "googleapis.com", "account": "", "expiry": "2024-11-29T20:11:47.937848Z"}
+  credentials.json: |
+    {"installed":{"client_id":"REDACTED","project_id":"quickstart-1564598226115","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"REDACTED","redirect_uris":["http://localhost"]}}
+metadata:
+  name: matte-token
+  namespace: code
+
+
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: matte-gemail
+  namespace: code
+spec:
+  schedule: "01 13 * * *"
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: gmail
+            image: mattiashem/get-gmail:v1
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: LABELS
+                value: "STARRED"
+              - name: MINIO_ENDPOINT
+                value: myminio-hl.minio.svc
+              - name: AWS_ACCESS_KEY_ID
+                valueFrom:
+                  secretKeyRef:
+                    name: matte-gmail
+                    key: AWS_ACCESS_KEY_ID
+              - name: AWS_SECRET_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: matte-gmail
+                    key: AWS_SECRET_ACCESS_KEY
+              - name: BUCKET
+                valueFrom:
+                  secretKeyRef:
+                    name: matte-gmail
+                    key: BUCKET
+            volumeMounts:
+              - mountPath: "/sec"
+                name: matte-token
+                readOnly: true
+                  
+          volumes:
+            - name: matte-token
+              secret:
+                secretName: matte-token
+          restartPolicy: OnFailure
+          nodeSelector:
+            beta.kubernetes.io/arch: amd64

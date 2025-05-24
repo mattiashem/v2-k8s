@@ -1,0 +1,56 @@
+kind: Secret
+type: Opaque
+apiVersion: v1
+stringData:
+  AWS_ACCESS_KEY_ID: "REDACTED"
+  AWS_SECRET_ACCESS_KEY: "REDACTED"
+  AWS_BUCKET: "lifeandshell"
+  GITHUB_TOKEN: "REDACTED"
+metadata:
+  name: lifeandshell
+  namespace: code
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lifeandshell
+  namespace: code
+spec:
+  schedule: "01 5 * * *"
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: publish
+            image: mattiashem/lifeandshell-get
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: GITHUB_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: lifeandshell
+                    key: GITHUB_TOKEN
+              - name: AWS_ACCESS_KEY_ID
+                valueFrom:
+                  secretKeyRef:
+                    name: lifeandshell
+                    key: AWS_ACCESS_KEY_ID
+              - name: AWS_SECRET_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: lifeandshell
+                    key: AWS_SECRET_ACCESS_KEY
+              - name: AWS_BUCKET
+                valueFrom:
+                  secretKeyRef:
+                    name: lifeandshell
+                    key: AWS_BUCKET
+          restartPolicy: OnFailure
+          nodeSelector:
+            beta.kubernetes.io/arch: amd64

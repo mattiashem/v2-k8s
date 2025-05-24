@@ -1,0 +1,54 @@
+kind: Secret
+type: Opaque
+apiVersion: v1
+stringData:
+  ES: "elasticsearch-es-internal-http"
+  ES_USER: "elastic"
+  ES_PASS: "4xm9A2vNL1Ux9y3O25I0hHz0"
+metadata:
+  name: get
+  namespace: code
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mantiser-get
+  namespace: code
+spec:
+  schedule: "01 04 * * *"
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: get
+            image: mattiashem/finder-news
+            imagePullPolicy: Always
+            command: ["python","start.py"]
+            env:
+              - name: ES
+                valueFrom:
+                  secretKeyRef:
+                    name: get
+                    key: ES
+              - name: ES_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: get
+                    key: ES_USER
+              - name: ES_PASS
+                valueFrom:
+                  secretKeyRef:
+                    name: get
+                    key: ES_PASS
+              - name: SITE
+                value: "mantiser"
+              - name: WORDS
+                value: "Ai in fincance, devops, aws , GENAI, security, finace and ai"
+          restartPolicy: OnFailure
+          nodeSelector:
+            beta.kubernetes.io/arch: amd64
