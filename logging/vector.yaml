@@ -11,10 +11,10 @@ data:
     enabled = true
     address = "0.0.0.0:8686"
 
-    # Receive logs from Filebeat via logstash protocol
-    [sources.filebeat_in]
-    type = "logstash"
-    address = "0.0.0.0:5044"
+    # Receive logs from Fluent Bit via forward protocol
+    [sources.fluent_in]
+    type = "fluent"
+    address = "0.0.0.0:24224"
 
     # Receive syslog over UDP
     [sources.syslog_udp]
@@ -34,26 +34,17 @@ data:
     [sources.syslog_tcp.decoding]
     codec = "syslog"
 
-    # Enrich Kubernetes logs with metadata labels
+    # Enrich Kubernetes logs with metadata labels (Fluent Bit field names)
     [transforms.enrich_k8s]
     type = "remap"
-    inputs = ["filebeat_in"]
+    inputs = ["fluent_in"]
     source = '''
       .source_type = "kubernetes"
-      if exists(.kubernetes.namespace) {
-        .namespace = string!(.kubernetes.namespace)
-      } else {
-        .namespace = "unknown"
-      }
-      if exists(.kubernetes.pod.name) {
-        .pod = string!(.kubernetes.pod.name)
-      } else {
-        .pod = "unknown"
-      }
-      if exists(.kubernetes.container.name) {
-        .container = string!(.kubernetes.container.name)
-      } else {
-        .container = "unknown"
+      .namespace = string(.kubernetes.namespace_name) ?? "unknown"
+      .pod       = string(.kubernetes.pod_name)       ?? "unknown"
+      .container = string(.kubernetes.container_name) ?? "unknown"
+      if !exists(.message) {
+        .message = string(.log) ?? encode_json(.)
       }
     '''
 
@@ -101,8 +92,8 @@ spec:
           image: timberio/vector:0.39.0-distroless-libc
           args: ["--config", "/etc/vector/vector.toml"]
           ports:
-            - name: logstash
-              containerPort: 5044
+            - name: fluent
+              containerPort: 24224
               protocol: TCP
             - name: syslog-udp
               containerPort: 514
@@ -129,7 +120,7 @@ spec:
           configMap:
             name: vector-collector-config
 ---
-# ClusterIP for Filebeat → Vector (logstash protocol)
+# ClusterIP for Fluent Bit → Vector (forward protocol)
 apiVersion: v1
 kind: Service
 metadata:
@@ -139,9 +130,9 @@ spec:
   selector:
     app: vector-collector
   ports:
-    - name: logstash
-      port: 5044
-      targetPort: 5044
+    - name: fluent
+      port: 24224
+      targetPort: 24224
       protocol: TCP
 ---
 # NodePort for external syslog sources (routers, servers, etc.)
