@@ -74,6 +74,7 @@ data:
     inputs = ["enrich_k8s", "enrich_syslog"]
     url = "nats://nats.code.svc.cluster.local:4222"
     subject = "logs.k8s"
+    connection_name = "vector-collector"
 
     [sinks.nats_out.encoding]
     codec = "json"
@@ -183,6 +184,7 @@ data:
     url = "nats://nats.code.svc.cluster.local:4222"
     subject = "logs.k8s"
     queue = "vector-aggregator"
+    connection_name = "vector-aggregator"
 
     [sources.nats_in.decoding]
     codec = "json"
