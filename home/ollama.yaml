@@ -1,0 +1,26 @@
+ollama:
+  gpu:
+    # -- Enable GPU integration
+    enabled: false
+    # -- GPU type: 'nvidia' or 'amd'
+    type: 'nvidia'
+    # -- Specify the number of GPU to 1
+    number: 1
+  # -- List of models to pull at container startup
+  models:
+    pull:
+      - mistral
+      - llamai2
+nodeSelector:
+  nvidia: "true"
+tolerations:
+- key: "nvidia"
+  operator: "Exists"
+  effect: "NoSchedule"
+ingress:
+  enabled: true
+  hosts:
+  - host: ollama.vs.local
+    paths:
+      - path: /
+        pathType: Prefix

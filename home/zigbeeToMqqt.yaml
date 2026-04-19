@@ -1,0 +1,137 @@
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mqqt-data
+  namespace: home
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mqqt-config
+  namespace: home
+data:
+  configuration.yaml: |
+    # DO NOT USE IN PRODUCTION
+    homeassistant:
+      enabled: true
+      discovery_topic: homeassistant
+      status_topic: homeassistant/status
+      experimental_event_entities: true
+      legacy_action_sensor: true
+    mqtt:
+      base_topic: zigbee2vete
+      server: mqtt://mosquitto-mqtts
+    serial:
+      port: tcp://10.0.0.15:6638
+      baudrate: 115200
+      adapter: ember
+      rtscts: false
+    frontend:
+      enabled: true
+      port: 8080
+
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zigbee-mqtt
+  namespace: home
+spec:
+  selector:
+    matchLabels:
+      app: zigbee-mqtt
+  serviceName: zigbee-mqtt
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: zigbee-mqtt
+    spec:
+      containers:
+      - name: zigbee-mqtt
+        image: ghcr.io/koenkk/zigbee2mqtt
+        securityContext:
+          privileged: true
+        env:
+        - name: FRIGATE_RTSP_PASSWOR
+          value: "true"
+        - name: LIBVA_DRIVER_NAME
+          value: radeonsi
+
+        volumeMounts:
+        - mountPath: /app/data
+          name: data
+        - mountPath: /app/data/config/configuration.yaml
+          subPath: configuration.yaml
+          name: config
+        - name: dev
+          mountPath: /dev/bus/usb
+      nodeSelector:
+        coral: "yes"
+      volumes:
+      - name: config
+        configMap:
+          name: mqqt-config
+      - name: dev
+        hostPath:
+          path: /dev/bus/usb
+      - name: dshm
+        emptyDir: {}
+      - name: data
+        persistentVolumeClaim:
+          claimName: mqqt-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zigbee
+  namespace: home
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: zigbee-mqtt
+  type: ClusterIP
+---
+
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: home-ollebo-com
+    kubernetes.io/ingress.class: traefik
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  generation: 3
+  name: zigbee
+  namespace: home
+spec:
+  rules:
+  - host: zigbee.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: zigbee
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - zigbee.v2.local
+    secretName: zigbee-tls
+
+

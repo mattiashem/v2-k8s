@@ -15,8 +15,8 @@ spec:
       values: |
         auth:
           adminUser: myadmin
-          existingSecret: keycloak
-          passwordSecretKey: admin-password
+          existingSecret: code-app
+          passwordSecretKey: password
         proxy: edge
         cache:
           enabled: true
@@ -24,10 +24,10 @@ spec:
         postgresql:
           enabled: false
         externalDatabase:
-           existingSecret: core-app
-           host: core-rw
-           user: keycloak
-           database: keycloak
+           existingSecret: code-app
+           host: code-rw
+           user: ollebo
+           database: ollebo
            existingSecretPasswordKey: password
         extraEnvVars: |
            - name: PROXY_ADDRESS_FORWARDING 
@@ -45,7 +45,7 @@ spec:
 
   destination:
     server: "https://kubernetes.default.svc"
-    namespace: keycloak
+    namespace: code
   syncPolicy:
     syncOptions:
       - CreateNamespace=true

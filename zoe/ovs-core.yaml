@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: core-config
+  namespace: zoe
+data:
+  mycroft.conf: |
+    # DO NOT USE IN PRODUCTION
+    {
+        "logs": {
+            "path": "stdout"
+          },
+          "play_wav_cmdline": "aplay %1",
+          "lang": "en-us",
+          "listener": {
+            "VAD": {
+              "module": "ovos-vad-plugin-silero"
+            }
+        },
+      // The mycroft-core messagebus websocket
+      "websocket": {
+        "host": "ovos-message.zoe.svc",
+        "port": 8181,
+        "route": "/core",
+        "ssl": false,
+        // in mycroft-core all skills share a bus, this allows malicious skills
+        // to manipulate it and affect other skills, this option ensures each skill
+        // gets its own websocket connection
+        "shared_connection": true,
+        // filter out messages of certain types from the bus logs
+        "filter": false,
+        // which messages to filter if filter is enabled
+        "filter_logs": ["gui.status.request", "gui.page.upload"]
+      }
+    }
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ovos-core
+  namespace: zoe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ovos-core
+  template:
+    metadata:
+      labels:
+        app: ovos-core
+    spec:
+      containers:
+      - name: ovos-core
+        image: docker.io/smartgic/ovos-core:alpha
+        imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: "UTC"
+        - name: PULSE_SERVER
+          value: "unix:/run/user/1000/pulse/native" # Update path if needed
+        - name: PULSE_COOKIE
+          value: "/home/ovos/.config/pulse/cookie"
+        - name: XDG_RUNTIME_DIR
+          value: "/run/user/1000" # Update path if needed
+        resources:
+          limits:
+            memory: "1G"
+            cpu: "1.0"
+          requests:
+            memory: "256M"
+            cpu: "0.25"
+        volumeMounts:
+        - name: ovos-config-folder
+          mountPath: /home/ovos/.config/mycroft
+        - mountPath: /home/ovos/.config/mycroft/mycroft.conf
+          subPath: mycroft.conf
+          name: config
+        - name: ovos-persona-folder
+          mountPath: /home/ovos/.config/ovos_persona
+        - name: ovos-local-state
+          mountPath: /home/ovos/.local/state/mycroft
+        - name: ovos-nltk
+          mountPath: /home/ovos/nltk_data
+        - name: ovos-share-folder
+          mountPath: /home/ovos/.local/share/mycroft
+      - name: ovos-cli
+        image: docker.io/smartgic/ovos-cli:alpha
+        imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: "UTC"
+        volumeMounts:
+        - name: ovos-config-folder
+          mountPath: /home/ovos/.config/mycroft
+        - mountPath: /home/ovos/.config/mycroft/mycroft.conf
+          subPath: mycroft.conf
+          name: config
+        - name: ovos-local-state
+          mountPath: /home/ovos/.local/state/mycroft
+      volumes:
+      - name: dev-snd
+        hostPath:
+          path: /dev/snd
+          type: Directory
+      - name: pulse-cookie
+        hostPath:
+          path: /home/user/.config/pulse/cookie # Update path to cookie on host
+          type: File
+      - name: ovos-config-folder
+        persistentVolumeClaim:
+          claimName: ovos-config
+      - name: ovos-persona-folder
+        persistentVolumeClaim:
+          claimName: persona-folder
+      - name: ovos-local-state
+        persistentVolumeClaim:
+          claimName: ovos-local-state
+      - name: ovos-nltk
+        persistentVolumeClaim:
+          claimName: ovos-nltk
+      - name: ovos-share-folder
+        persistentVolumeClaim:
+          claimName: ovos-share-folder
+      - name: config
+        configMap:
+          name: core-config
+
+
+---

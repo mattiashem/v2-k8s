@@ -127,7 +127,15 @@ spec:
       values: |
         persistence:
           enabled: true
-
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+              - name: Loki
+                type: loki
+                url: http://loki.logging.svc.cluster.local:3100
+                access: proxy
+                isDefault: false
 
   destination:
     server: "https://kubernetes.default.svc"

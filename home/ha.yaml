@@ -84,3 +84,33 @@ spec:
     app: homeassistant
   sessionAffinity: None
   type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: http
+    kubernetes.io/ingress.class: traefik
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  generation: 3
+  name: ha
+  namespace: home
+spec:
+  rules:
+  - host: ha.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: homeassistant
+            port:
+              number: 8123
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - ha.v2.local
+    secretName: ha
+

@@ -1,0 +1,32 @@
+---
+# One-time Job to create the LOGS stream in NATS JetStream.
+# Re-running is safe — nats stream add is idempotent with --no-create.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nats-stream-setup
+  namespace: logging
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 120
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: nats-cli
+          image: natsio/nats-box:0.14.5
+          command:
+            - sh
+            - -c
+            - |
+              nats stream add LOGS \
+                --server nats://nats.code.svc.cluster.local:4222 \
+                --subjects "logs.k8s" \
+                --storage file \
+                --retention limits \
+                --max-age 24h \
+                --replicas 1 \
+                --defaults 2>/dev/null || \
+              echo "Stream LOGS already exists or created successfully"

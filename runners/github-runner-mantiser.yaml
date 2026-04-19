@@ -1,0 +1,14 @@
+labels:
+  runs: actions
+  type: self-runners
+githubConfigUrl: https://github.com/mantiser-com/
+githubConfigSecret: github-runner-mantiser
+containerMode:
+  type: "dind"
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-gha-rs-controller
+template:
+  spec:
+    nodeSelector:
+      beta.kubernetes.io/arch: amd64

@@ -1,0 +1,9 @@
+githubConfigUrl: https://github.com/ollebo/
+githubConfigSecret:
+  github_token: "REDACTED"
+containerMode:
+  type: "dind"
+template:
+  spec:
+    nodeSelector:
+      beta.kubernetes.io/arch: amd64

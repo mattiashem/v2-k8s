@@ -1,0 +1,42 @@
+#small deployment with nodeport for local testing or small deployments
+main:
+  config:
+    n8n:
+      encryption_key: "hhayuisydkjhasjkdhjkasdhjk"
+      secure_cookie: false    
+      hide_usage_page: true
+    db:
+      type: postgresdb
+      postgresdb:
+        host: n8n-rw
+        user: n8n
+  extraEnv:
+      DB_POSTGRESDB_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: n8n-app
+            key: password
+  persistence:
+    enabled: True
+    size: 3Gi
+
+  secret:
+    n8n:
+      encryption_key: "hhayuisydkjhasjkdhjkasdhjk"
+  resources:
+    limits:
+      memory: 2048Mi
+    requests:
+      memory: 512Mi
+  service:
+    type: LoadBalancer
+    port: 5678
+ingress:
+  enabled: false
+  hosts:
+    - host: n8n.socomp.se
+      paths: []
+  tls:
+    - hosts:
+        - n8n.socomp.se
+      secretName: n8n-socomp-se

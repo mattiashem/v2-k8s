@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ovos-phal
+  namespace: zoe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ovos-phal
+  template:
+    metadata:
+      labels:
+        app: ovos-phal
+    spec:
+      containers:
+      - name: ovos-phal
+        image: docker.io/smartgic/ovos-phal:alpha
+        imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: "UTC"
+        - name: PULSE_SERVER
+          value: "unix:/run/user/1000/pulse/native" # Update path if needed
+        - name: PULSE_COOKIE
+          value: "/home/ovos/.config/pulse/cookie"
+        - name: XDG_RUNTIME_DIR
+          value: "/run/user/1000" # Update path if needed
+        resources:
+          limits:
+            memory: "512M"
+          requests:
+            memory: "128M"
+        volumeMounts:
+        - name: ovos-config-folder
+          mountPath: /root
+        - mountPath: /root/.config/mycroft/mycroft.conf
+          subPath: mycroft.conf
+          name: config
+        - name: ovos-config-phal-folder
+          mountPath: /home/ovos/.config/OpenVoiceOS
+        - name: ovos-local-state
+          mountPath: /home/ovos/.local/state/mycroft
+      volumes:
+      - name: ovos-config-folder
+        persistentVolumeClaim:
+          claimName: ovos-config
+      - name: config
+        configMap:
+          name: core-config
+      - name: ovos-config-phal-folder
+        persistentVolumeClaim:
+          claimName: ovos-config-phal-folder
+      - name: ovos-local-state
+        persistentVolumeClaim:
+          claimName: ovos-local-state

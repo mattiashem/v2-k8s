@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-ssh-service
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  url: git@github.com:mattiashem/v2-k8s.git
+  sshPrivateKey: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    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
+    -----END OPENSSH PRIVATE KEY-----
+
+
+
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: core
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # Project description
+  description: Core Plattform Service
+
+  # Allow manifests to deploy from any Git repos
+  sourceRepos:
+  - '*'
+
+  # Only permit applications to deploy to the guestbook namespace in the same cluster
+  # Destination clusters can be identified by 'server', 'name', or both.
+  destinations:
+  - server: https://kubernetes.default.svc
+    name: cluster
+    namespace: '*'
+
+  # Deny all cluster-scoped resources from being created, except for Namespace
+  clusterResourceWhitelist:
+  - group: '*'
+    kind: '*'
+
+
+
+
+  # Allow all namespaced-scoped resources to be created, except for ResourceQuota, LimitRange, NetworkPolicy
+  namespaceResourceBlacklist:
+  - group: ''
+    kind: ResourceQuota
+  - group: ''
+    kind: LimitRange
+  - group: ''
+    kind: NetworkPolicy
+
+
+  # Enables namespace orphaned resource monitoring.
+  orphanedResources:
+    warn: false
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-seed
+  namespace: argocd
+spec:
+  project: core
+  source:
+    repoURL: git@github.com:mattiashem/v2-k8s.git
+    targetRevision: HEAD
+    path: core
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+

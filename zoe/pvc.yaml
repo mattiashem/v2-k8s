@@ -1,0 +1,144 @@
+# /home/mattias/projects/hrb/v2-k8s/zoe/ovos-volumes.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-models
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-vosk
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-listener-records
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-tts-cache
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-nltk
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-config
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: persona-folder
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-share-folder
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 10Gi
+---
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-skills
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-config-phal-folder
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ovos-local-state
+  namespace: zoe
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName:  truenas-nfs-nonroot
+  resources:
+    requests:
+      storage: 10Gi

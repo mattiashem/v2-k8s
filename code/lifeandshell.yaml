@@ -6,6 +6,8 @@ stringData:
   AWS_SECRET_ACCESS_KEY: "REDACTED"
   AWS_BUCKET: "lifeandshell"
   GITHUB_TOKEN: "REDACTED"
+  STRAPI_URL: "http://192.168.1.70:1337/api"
+  STRAPI_TOKEN: "REDACTED"
 metadata:
   name: lifeandshell
   namespace: code
@@ -29,7 +31,7 @@ spec:
           containers:
           - name: publish
             image: mattiashem/lifeandshell-get
-            imagePullPolicy: IfNotPresent
+            imagePullPolicy: Always
             env:
               - name: GITHUB_TOKEN
                 valueFrom:
@@ -53,4 +55,4 @@ spec:
                     key: AWS_BUCKET
           restartPolicy: OnFailure
           nodeSelector:
-            beta.kubernetes.io/arch: amd64
+            kubernetes.io/arch: amd64

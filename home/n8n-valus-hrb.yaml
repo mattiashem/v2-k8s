@@ -1,0 +1,46 @@
+#small deployment with nodeport for local testing or small deployments
+main:
+  config:
+    n8n:
+      encryption_key: "hhayuisydkjhasjkdhjkasdhjk"
+      secure_cookie: false    
+      hide_usage_page: true
+      allowednetwork: 0.0.0.0/0
+      runners_stdlib_allow: "*"
+    n8nallowednetwork: 0.0.0.0/0    
+    python_function_allow_external: "*"
+    db:
+      type: postgresdb
+      postgresdb:
+        host: n8n-hrb-rw
+        user: n8n
+  extraEnv:
+      DB_POSTGRESDB_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: n8n-hrb-app
+            key: password
+  persistence:
+    enabled: True
+    size: 3Gi
+
+  secret:
+    n8n:
+      encryption_key: "hhayuisydkjhasjkdhjkasdhjk"
+  resources:
+    limits:
+      memory: 2048Mi
+    requests:
+      memory: 512Mi
+  service:
+    type: LoadBalancer
+    port: 5678
+ingress:
+  enabled: false
+  hosts:
+    - host: n8n-hrb.socomp.se
+      paths: []
+  tls:
+    - hosts:
+        - n8n-hrb.socomp.se
+      secretName: n8n-hrb-socomp-se

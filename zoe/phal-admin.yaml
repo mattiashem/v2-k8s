@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ovos-phal-admin
+  namespace: zoe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ovos-phal-admin
+  template:
+    metadata:
+      labels:
+        app: ovos-phal-admin
+    spec:
+      containers:
+      - name: ovos-phal-admin
+        image: docker.io/smartgic/ovos-phal-admin:alpha
+        imagePullPolicy: Always
+        env:
+        - name: TZ
+          value: "UTC"
+        resources:
+          limits:
+            memory: "512M"
+          requests:
+            memory: "128M"
+        volumeMounts:
+        - name: ovos-config-folder
+          mountPath: /root
+        - mountPath: /root/.config/mycroft/mycroft.conf
+          subPath: mycroft.conf
+          name: config
+        - name: ovos-config-phal-folder
+          mountPath: /home/ovos/.config/OpenVoiceOS
+        - name: ovos-local-state
+          mountPath: /home/ovos/.local/state/mycroft
+      volumes:
+      - name: ovos-config-folder
+        persistentVolumeClaim:
+          claimName: ovos-config
+      - name: config
+        configMap:
+          name: core-config
+      - name: ovos-config-phal-folder
+        persistentVolumeClaim:
+          claimName: ovos-config-phal-folder
+      - name: ovos-local-state
+        persistentVolumeClaim:
+          claimName: ovos-local-state

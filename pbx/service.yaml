@@ -1,0 +1,440 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mikopbx-lb
+  namespace: pbx
+spec:
+  type: LoadBalancer
+  # If you are on AWS/GCP/Azure, you might need specific annotations here 
+  # to support mixed protocols (TCP/UDP) on one Load Balancer.
+  selector:
+    app: mikopbx
+  ports:
+    - name: webb
+      port: 8080
+      targetPort: 8080
+   # --- SIP Internal (Signaling) ---
+    - name: sip-internal-udp
+      port: 5060
+      targetPort: 5060
+      protocol: UDP
+    - name: sip-internal-tcp
+      port: 5060
+      targetPort: 5060
+      protocol: TCP
+
+    # --- SIP External (Signaling) ---
+    - name: sip-external-tcp
+      port: 5061
+      targetPort: 5061
+      protocol: UDP
+
+
+
+    # --- RTP / Media Ports (Sample Range: 16384-16393) ---
+    # NOTE: You cannot define a range (e.g. 16384-32768) directly in standard K8s YAML.
+    # You must list them one by one. This is a small sample.
+    - name: rtp-10000
+      port: 10000
+      targetPort: 10000
+      protocol: UDP
+    - name: rtp-10001
+      port: 10001
+      targetPort: 10001
+      protocol: UDP
+    - name: rtp-10002
+      port: 10002
+      targetPort: 10002
+      protocol: UDP
+    - name: rtp-10003
+      port: 10003
+      targetPort: 10003
+      protocol: UDP
+    - name: rtp-10004
+      port: 10004
+      targetPort: 10004
+      protocol: UDP
+    - name: rtp-10005
+      port: 10005
+      targetPort: 10005
+      protocol: UDP
+    - name: rtp-10006
+      port: 10006
+      targetPort: 10006
+      protocol: UDP
+    - name: rtp-10007
+      port: 10007
+      targetPort: 10007
+      protocol: UDP
+    - name: rtp-10008
+      port: 10008
+      targetPort: 10008
+      protocol: UDP
+    - name: rtp-10009
+      port: 10009
+      targetPort: 10009
+      protocol: UDP
+    - name: rtp-10010
+      port: 10010
+      targetPort: 10010
+      protocol: UDP
+    - name: rtp-10011
+      port: 10011
+      targetPort: 10011
+      protocol: UDP
+    - name: rtp-10012
+      port: 10012
+      targetPort: 10012
+      protocol: UDP
+    - name: rtp-10013
+      port: 10013
+      targetPort: 10013
+      protocol: UDP
+    - name: rtp-10014
+      port: 10014
+      targetPort: 10014
+      protocol: UDP
+    - name: rtp-10015
+      port: 10015
+      targetPort: 10015
+      protocol: UDP
+    - name: rtp-10016
+      port: 10016
+      targetPort: 10016
+      protocol: UDP
+    - name: rtp-10017
+      port: 10017
+      targetPort: 10017
+      protocol: UDP
+    - name: rtp-10018
+      port: 10018
+      targetPort: 10018
+      protocol: UDP
+    - name: rtp-10019
+      port: 10019
+      targetPort: 10019
+      protocol: UDP
+    - name: rtp-10020
+      port: 10020
+      targetPort: 10020
+      protocol: UDP
+    - name: rtp-10021
+      port: 10021
+      targetPort: 10021
+      protocol: UDP
+    - name: rtp-10022
+      port: 10022
+      targetPort: 10022
+      protocol: UDP
+    - name: rtp-10023
+      port: 10023
+      targetPort: 10023
+      protocol: UDP
+    - name: rtp-10024
+      port: 10024
+      targetPort: 10024
+      protocol: UDP
+    - name: rtp-10025
+      port: 10025
+      targetPort: 10025
+      protocol: UDP
+    - name: rtp-10026
+      port: 10026
+      targetPort: 10026
+      protocol: UDP
+    - name: rtp-10027
+      port: 10027
+      targetPort: 10027
+      protocol: UDP
+    - name: rtp-10028
+      port: 10028
+      targetPort: 10028
+      protocol: UDP
+    - name: rtp-10029
+      port: 10029
+      targetPort: 10029
+      protocol: UDP
+    - name: rtp-10030
+      port: 10030
+      targetPort: 10030
+      protocol: UDP
+    - name: rtp-10031
+      port: 10031
+      targetPort: 10031
+      protocol: UDP
+    - name: rtp-10032
+      port: 10032
+      targetPort: 10032
+      protocol: UDP
+    - name: rtp-10033
+      port: 10033
+      targetPort: 10033
+      protocol: UDP
+    - name: rtp-10034
+      port: 10034
+      targetPort: 10034
+      protocol: UDP
+    - name: rtp-10035
+      port: 10035
+      targetPort: 10035
+      protocol: UDP
+    - name: rtp-10036
+      port: 10036
+      targetPort: 10036
+      protocol: UDP
+    - name: rtp-10037
+      port: 10037
+      targetPort: 10037
+      protocol: UDP
+    - name: rtp-10038
+      port: 10038
+      targetPort: 10038
+      protocol: UDP
+    - name: rtp-10039
+      port: 10039
+      targetPort: 10039
+      protocol: UDP
+    - name: rtp-10040
+      port: 10040
+      targetPort: 10040
+      protocol: UDP
+    - name: rtp-10041
+      port: 10041
+      targetPort: 10041
+      protocol: UDP
+    - name: rtp-10042
+      port: 10042
+      targetPort: 10042
+      protocol: UDP
+    - name: rtp-10043
+      port: 10043
+      targetPort: 10043
+      protocol: UDP
+    - name: rtp-10044
+      port: 10044
+      targetPort: 10044
+      protocol: UDP
+    - name: rtp-10045
+      port: 10045
+      targetPort: 10045
+      protocol: UDP
+    - name: rtp-10046
+      port: 10046
+      targetPort: 10046
+      protocol: UDP
+    - name: rtp-10047
+      port: 10047
+      targetPort: 10047
+      protocol: UDP
+    - name: rtp-10048
+      port: 10048
+      targetPort: 10048
+      protocol: UDP
+    - name: rtp-10049
+      port: 10049
+      targetPort: 10049
+      protocol: UDP
+    - name: rtp-10050
+      port: 10050
+      targetPort: 10050
+      protocol: UDP
+    - name: rtp-10051
+      port: 10051
+      targetPort: 10051
+      protocol: UDP
+    - name: rtp-10052
+      port: 10052
+      targetPort: 10052
+      protocol: UDP
+    - name: rtp-10053
+      port: 10053
+      targetPort: 10053
+      protocol: UDP
+    - name: rtp-10054
+      port: 10054
+      targetPort: 10054
+      protocol: UDP
+    - name: rtp-10055
+      port: 10055
+      targetPort: 10055
+      protocol: UDP
+    - name: rtp-10056
+      port: 10056
+      targetPort: 10056
+      protocol: UDP
+    - name: rtp-10057
+      port: 10057
+      targetPort: 10057
+      protocol: UDP
+    - name: rtp-10058
+      port: 10058
+      targetPort: 10058
+      protocol: UDP
+    - name: rtp-10059
+      port: 10059
+      targetPort: 10059
+      protocol: UDP
+    - name: rtp-10060
+      port: 10060
+      targetPort: 10060
+      protocol: UDP
+    - name: rtp-10061
+      port: 10061
+      targetPort: 10061
+      protocol: UDP
+    - name: rtp-10062
+      port: 10062
+      targetPort: 10062
+      protocol: UDP
+    - name: rtp-10063
+      port: 10063
+      targetPort: 10063
+      protocol: UDP
+    - name: rtp-10064
+      port: 10064
+      targetPort: 10064
+      protocol: UDP
+    - name: rtp-10065
+      port: 10065
+      targetPort: 10065
+      protocol: UDP
+    - name: rtp-10066
+      port: 10066
+      targetPort: 10066
+      protocol: UDP
+    - name: rtp-10067
+      port: 10067
+      targetPort: 10067
+      protocol: UDP
+    - name: rtp-10068
+      port: 10068
+      targetPort: 10068
+      protocol: UDP
+    - name: rtp-10069
+      port: 10069
+      targetPort: 10069
+      protocol: UDP
+    - name: rtp-10070
+      port: 10070
+      targetPort: 10070
+      protocol: UDP
+    - name: rtp-10071
+      port: 10071
+      targetPort: 10071
+      protocol: UDP
+    - name: rtp-10072
+      port: 10072
+      targetPort: 10072
+      protocol: UDP
+    - name: rtp-10073
+      port: 10073
+      targetPort: 10073
+      protocol: UDP
+    - name: rtp-10074
+      port: 10074
+      targetPort: 10074
+      protocol: UDP
+    - name: rtp-10075
+      port: 10075
+      targetPort: 10075
+      protocol: UDP
+    - name: rtp-10076
+      port: 10076
+      targetPort: 10076
+      protocol: UDP
+    - name: rtp-10077
+      port: 10077
+      targetPort: 10077
+      protocol: UDP
+    - name: rtp-10078
+      port: 10078
+      targetPort: 10078
+      protocol: UDP
+    - name: rtp-10079
+      port: 10079
+      targetPort: 10079
+      protocol: UDP
+    - name: rtp-10080
+      port: 10080
+      targetPort: 10080
+      protocol: UDP
+    - name: rtp-10081
+      port: 10081
+      targetPort: 10081
+      protocol: UDP
+    - name: rtp-10082
+      port: 10082
+      targetPort: 10082
+      protocol: UDP
+    - name: rtp-10083
+      port: 10083
+      targetPort: 10083
+      protocol: UDP
+    - name: rtp-10084
+      port: 10084
+      targetPort: 10084
+      protocol: UDP
+    - name: rtp-10085
+      port: 10085
+      targetPort: 10085
+      protocol: UDP
+    - name: rtp-10086
+      port: 10086
+      targetPort: 10086
+      protocol: UDP
+    - name: rtp-10087
+      port: 10087
+      targetPort: 10087
+      protocol: UDP
+    - name: rtp-10088
+      port: 10088
+      targetPort: 10088
+      protocol: UDP
+    - name: rtp-10089
+      port: 10089
+      targetPort: 10089
+      protocol: UDP
+    - name: rtp-10090
+      port: 10090
+      targetPort: 10090
+      protocol: UDP
+    - name: rtp-10091
+      port: 10091
+      targetPort: 10091
+      protocol: UDP
+    - name: rtp-10092
+      port: 10092
+      targetPort: 10092
+      protocol: UDP
+    - name: rtp-10093
+      port: 10093
+      targetPort: 10093
+      protocol: UDP
+    - name: rtp-10094
+      port: 10094
+      targetPort: 10094
+      protocol: UDP
+    - name: rtp-10095
+      port: 10095
+      targetPort: 10095
+      protocol: UDP
+    - name: rtp-10096
+      port: 10096
+      targetPort: 10096
+      protocol: UDP
+    - name: rtp-10097
+      port: 10097
+      targetPort: 10097
+      protocol: UDP
+    - name: rtp-10098
+      port: 10098
+      targetPort: 10098
+      protocol: UDP
+    - name: rtp-10099
+      port: 10099
+      targetPort: 10099
+      protocol: UDP
+    - name: rtp-10100
+      port: 10100
+      targetPort: 10100
+      protocol: UDP

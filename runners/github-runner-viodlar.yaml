@@ -1,0 +1,11 @@
+githubConfigUrl: https://github.com/viodlar/
+githubConfigSecret: github-runner-viodlar
+containerMode:
+  type: "dind"
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-gha-rs-controller
+template:
+  spec:
+    nodeSelector:
+      beta.kubernetes.io/arch: amd64

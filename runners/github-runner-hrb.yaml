@@ -1,0 +1,12 @@
+githubConfigUrl: https://github.com/Hacking-Robots-and-Beer/
+githubConfigSecret: github-runner-hrb
+containerMode:
+  type: "dind"
+#runnerGroup: "v2"
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-gha-rs-controller
+template:
+  spec:
+    nodeSelector:
+      beta.kubernetes.io/arch: amd64

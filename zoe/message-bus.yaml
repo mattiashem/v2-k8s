@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: message-config
+  namespace: zoe
+data:
+  mycroft.conf: |
+    # DO NOT USE IN PRODUCTION
+    {
+        "logs": {
+            "path": "stdout"
+          },
+          "play_wav_cmdline": "aplay %1",
+          "lang": "en-us",
+          "listener": {
+            "VAD": {
+              "module": "ovos-vad-plugin-silero"
+            }
+        },
+      // The mycroft-core messagebus websocket
+      "websocket": {
+        "host": "0.0.0.0",
+        "port": 8181,
+        "route": "/core",
+        "ssl": false,
+        // in mycroft-core all skills share a bus, this allows malicious skills
+        // to manipulate it and affect other skills, this option ensures each skill
+        // gets its own websocket connection
+        "shared_connection": true,
+        // filter out messages of certain types from the bus logs
+        "filter": false,
+        // which messages to filter if filter is enabled
+        "filter_logs": ["gui.status.request", "gui.page.upload"]
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ovos-message
+  namespace: zoe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ovos-message
+  template:
+    metadata:
+      labels:
+        app: ovos-message
+    spec:
+      containers:
+      - name: ovos-message
+        image: docker.io/smartgic/ovos-messagebus:alpha
+        ports:
+        - containerPort: 8181
+        volumeMounts:
+        - mountPath: /home/ovos/.config/mycroft/mycroft.conf
+          subPath: mycroft.conf
+          name: config
+      volumes:
+      - name: config
+        configMap:
+          name: message-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ovos-message
+  namespace: zoe
+spec:
+  type: ClusterIP
+  selector:
+    app: ovos-message  
+  ports:
+  - port: 8181

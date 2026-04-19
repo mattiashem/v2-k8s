@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mikopbx
+  namespace: pbx
+  labels:
+    app: mikopbx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mikopbx
+  template:
+    metadata:
+      labels:
+        app: mikopbx
+    spec:
+      # Equivalent to network_mode: "host"
+      # This allows the PBX to handle SIP/RTP without NAT issues.
+      # Recommended when using hostNetwork so internal K8s DNS still works
+      hostname: pbx
+      hostAliases:
+        - ip: "10.0.0.111"
+          hostnames:
+            - "pbx"
+      containers:
+      - name: mikopbx
+        image: ghcr.io/mikopbx/mikopbx-x86-64
+        # Equivalent to entrypoint: "/sbin/docker-entrypoint"
+        command: ["/sbin/docker-entrypoint"]
+        # Equivalent to tty: true
+        tty: true
+        env:
+        # You may need to adjust user IDs based on your host system
+        - name: ID_WWW_USER
+          value: "33" # Default for www-data often used in these images
+        - name: ID_WWW_GROUP
+          value: "33"
+        - name: PBX_NAME
+          value: "MikoPBX-in-Docker"
+        - name: SSH_PORT
+          value: "23"
+        - name: WEB_PORT
+          value: "8080"
+        - name: WEB_HTTPS_PORT
+          value: "8443"
+          
+        volumeMounts:
+        - name: cf-storage
+          mountPath: /cf
+        - name: main-storage
+          mountPath: /storage
+        resources:
+          requests:
+            cpu: "1"
+            memory: "1G"
+          limits:
+            cpu: "1"
+            memory: "1G"         
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      volumes:
+      # Using hostPath to match the specific host paths in your compose file.
+      # CAUTION: This ties the Pod to nodes that have these specific directories.
+      - name: cf-storage
+        persistentVolumeClaim:
+          claimName: cf-storage    
+      - name: main-storage
+        persistentVolumeClaim:
+          claimName: main-storage      
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: main-storage
+  namespace: pbx
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cf-storage
+  namespace: pbx
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

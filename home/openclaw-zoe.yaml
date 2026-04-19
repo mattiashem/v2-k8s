@@ -1,0 +1,160 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openclaw-zoe
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openclaw-zoe-secrets
+  namespace: openclaw-zoe
+stringData:
+  OPENCLAW_GATEWAY_TOKEN: "43c6869cb063b54cdafa1effd22d9fb4b5ad432cc4472c82a3acace2e8b06f4c"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openclaw-zoe-config
+  namespace: openclaw-zoe
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openclaw-zoe-home
+  namespace: openclaw-zoe
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openclaw-zoe-workspace
+  namespace: openclaw-zoe
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: openclaw-zoe
+  namespace: openclaw-zoe
+spec:
+  serviceName: openclaw-zoe
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openclaw-zoe
+  template:
+    metadata:
+      labels:
+        app: openclaw-zoe
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: openclaw-zoe
+        #image: ubuntu:latest
+        image: ghcr.io/openclaw/openclaw:latest
+        command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789", "--allow-unconfigured"]
+        #command: ["tail","-f","/dev/null"]
+        env:
+        - name: HOME
+          value: /home/node
+        - name: TERM
+          value: xterm-256color
+        - name: NODE_ENV
+          value: production
+        - name: OPENCLAW_TRUSTED_PROXY_NETWORK
+          value: 10.96.0.0/12
+        envFrom:
+        - secretRef:
+            name: openclaw-zoe-secrets
+        ports:
+        - containerPort: 18789
+          name: http
+        - containerPort: 18790
+          name: bridge
+        volumeMounts:
+        - name: config
+          mountPath: /home/node/.openclaw
+        - name: workspace
+          mountPath: /home/node/.openclaw/workspace
+        - name: home
+          mountPath: /home/
+       #readinessProbe:
+       #   tcpSocket:
+       #     port: 18789
+       #   initialDelaySeconds: 10
+       #   periodSeconds: 10
+       # livenessProbe:
+       #   tcpSocket:
+       #     port: 18789
+       #   initialDelaySeconds: 30
+       #   periodSeconds: 30
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: openclaw-zoe-config
+      - name: workspace
+        persistentVolumeClaim:
+          claimName: openclaw-zoe-workspace
+      - name: home
+        persistentVolumeClaim:
+          claimName: openclaw-zoe-home
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openclaw-zoe
+  namespace: openclaw-zoe
+spec:
+  selector:
+    app: openclaw-zoe
+  ports:
+  - name: http
+    port: 18789
+    targetPort: 18789
+  - name: bridge
+    port: 18790
+    targetPort: 18790
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  name: openclaw-zoe
+  namespace: openclaw-zoe
+spec:
+  rules:
+  - host: openclaw-zoe.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: openclaw-zoe
+            port:
+              number: 18789
+        path: /
+        pathType: Prefix

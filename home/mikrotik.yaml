@@ -8,6 +8,9 @@ data:
     [main-fw]
         # for specific configuration on the router level, overload the defaults here
         hostname = 192.168.1.1
+    [main-sw1]
+        # for specific configuration on the router level, overload the defaults here
+        hostname = 192.168.1.3
 
     [hus-sw1]
         # for specific configuration on the router level, overload the defaults here
@@ -47,7 +50,7 @@ data:
         ipv6_firewall = False           # IPv6 Firewall rules traffic metrics
         ipv6_neighbor = False           # IPv6 Reachable Neighbors
 
-        poe = True                      # POE metrics
+        poe = False                      # POE metrics
         monitor = True                  # Interface monitor metrics
         netwatch = True                 # Netwatch metrics
         public_ip = True                # Public IP metrics
@@ -75,6 +78,19 @@ data:
         check_for_updates = False       # check for available ROS updates
 
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mikrotik-config
+  namespace: home
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  
+---  
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -90,8 +106,6 @@ spec:
       labels:
         app: mikrotik-exporter
     spec:
-      securityContext:
-        runAsUser: 0
       containers:
       - name: mikrotik-exporter
         image: ghcr.io/akpw/mktxp:latest
@@ -101,12 +115,17 @@ spec:
         - name: config
           mountPath: /home/mktxp/mktxp/mktxp.conf
           subPath: mktxp.conf
+        - name: config-disk
+          mountPath: /home/mktxp/mktxp
+      securityContext:
+        fsGroup: 1000
       volumes:
         - name: config
-          projected:
-            sources:
-              - configMap:
-                  name: mktxp
+          configMap:
+            name: mktxp
+        - name: config-disk
+          persistentVolumeClaim:
+            claimName: mikrotik-config
 
 ---
 apiVersion: v1
@@ -117,9 +136,10 @@ metadata:
   annotations:
     prometheus.io/scrape: 'true'
     prometheus.io/port: '49090'
-
+spec:
   type: ClusterIP
   selector:
     app: mikrotik-exporter  
   ports:
   - port: 49090
+---

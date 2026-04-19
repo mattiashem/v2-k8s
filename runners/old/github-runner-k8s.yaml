@@ -1,0 +1,42 @@
+githubConfigUrl: https://github.com/ollebo/
+githubConfigSecret:
+  github_token: "REDACTED"
+containerMode:
+  type: "kubernetes"
+template:
+  spec:
+    nodeSelector:
+      beta.kubernetes.io/arch: amd64
+    securityContext:
+      fsGroup: 123
+    containers:
+      - name: runner
+        image: ghcr.io/linux-riscv/runner-multi:latest
+        command: ["/home/runner/run.sh"]
+        env:
+          - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
+            value: "/home/runner/config/worker-podspec.yaml"
+          - name: ACTIONS_RUNNER_USE_KUBE_SCHEDULER
+            value: "true"
+          - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+            value: "false"
+        volumeMounts:
+          - name: worker-podspec-volume
+            mountPath: /home22/runner/config
+            readOnly: true
+    volumes:
+      - name: worker-podspec-volume
+        configMap:
+          name: worker-cm
+          items:
+            - key: worker-podspec.yaml
+              path: worker-podspec.yaml
+      - name: work
+        ephemeral:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: "truenas-nfs-nonroot"
+              accessModes: [ "ReadWriteOnce" ]
+              resources:
+                requests:
+                  storage: 50Gi

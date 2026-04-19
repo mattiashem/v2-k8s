@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: worker-cm
+  namespace: arc-runners
+data:
+  worker-podspec.yaml: |
+    # This is the github worker file

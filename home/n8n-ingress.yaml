@@ -1,0 +1,56 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: home-ollebo-com
+    kubernetes.io/ingress.class: traefik
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  generation: 3
+  name: n8n-hrb
+  namespace: home
+spec:
+  rules:
+  - host: n8n-hrb.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: hrb-n8n
+            port:
+              number: 5678
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - n8n-hrb.v2.local
+    secretName: n8n-hrb-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: home-ollebo-com
+    kubernetes.io/ingress.class: traefik
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  generation: 3
+  name: n8n
+  namespace: home
+spec:
+  rules:
+  - host: n8n.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: my-n8n
+            port:
+              number: 5678
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - n8n.v2.local
+    secretName: n8n-tls
+

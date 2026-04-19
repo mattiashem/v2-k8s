@@ -3,11 +3,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: pihole-etc
   namespace: home
-
-  annotations:
-    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
 spec:
-  storageClassName: truenas-iscsi-nonroot
   accessModes:
     - ReadWriteOnce
   resources:
@@ -19,10 +15,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: pihole-dnsmasq
   namespace: home
-  annotations:
-    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
 spec:
-  storageClassName: truenas-iscsi-nonroot
   accessModes:
     - ReadWriteOnce
   resources:
@@ -53,11 +46,11 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: PRIMARY_HOST_BASE_URL
-              value: "http://127.0.0.1"
+              value: "http://pihole-dmz.home.svc"
             - name: PRIMARY_HOST_PASSWORD
               value: "v2password"
             - name: SECONDARY_HOSTS_1_BASE_URL
-              value: "http://pihole-2"
+              value: "http://pihole-dmz-2.home.svc"
             - name: SECONDARY_HOSTS_1_PASSWORD
               value: "v2password"
             - name: INTERVAL_MINUTES
@@ -69,7 +62,7 @@ spec:
           env:
             - name: TZ
               value: "Europe/Stockholm"
-            - name: WEBPASSWORD
+            - name: FTLCONF_webserver_api_password
               value: "v2password"
           #securityContext:
           #  privileged: true
@@ -96,6 +89,8 @@ spec:
             limits:
               memory: 2Gi
               cpu: 1
+      nodeSelector:
+        pihole: "1"
       volumes:
         - name: etc
           persistentVolumeClaim:
@@ -108,11 +103,66 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    metallb.universe.tf/ip-allocated-from-pool: pihole-lan2
+    metallb.universe.tf/address-pool: pihole-lan2
     external-dns.alpha.kubernetes.io/hostname: pihole.socomp.se
   labels:
     app: pihole
-  name: pihole
+  name: pihole-lan2
+  namespace: home
+spec:
+  ports:
+  - name: dns
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: dnsudp
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  internalTrafficPolicy: Local
+  externalTrafficPolicy: Local
+  selector:
+    app: pihole
+    number: "2"
+  #sessionAffinity: None
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    metallb.universe.tf/address-pool: pihole-lan
+    #metallb.io/loadBalancerIPs: 192.168.1.17
+  labels:
+    app: pihole
+  name: pihole-lan
+  namespace: home
+spec:
+  ports:
+  - name: dns
+    port: 53
+    protocol: TCP
+    targetPort: 53
+  - name: dnsudp
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  selector:
+    app: pihole
+    number: "1"
+  #sessionAffinity: None
+  internalTrafficPolicy: Local
+  externalTrafficPolicy: Local
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    metallb.universe.tf/address-pool: pihole
+  labels:
+    app: pihole
+  name: pihole-dmz
   namespace: home
 spec:
   externalTrafficPolicy: Local
@@ -132,58 +182,7 @@ spec:
     targetPort: 80
   selector:
     app: pihole
-  sessionAffinity: None
-  type: LoadBalancer
----
-apiVersion: v1
-kind: Service
-metadata:
-  annotations:
-    metallb.universe.tf/ip-allocated-from-pool: pihole-lan
-  labels:
-    app: pihole
-  name: pihole-lan
-  namespace: home
-spec:
-  externalTrafficPolicy: Local
-  internalTrafficPolicy: Cluster
-  ports:
-  - name: dns
-    port: 53
-    protocol: TCP
-    targetPort: 53
-  - name: dnsudp
-    port: 53
-    protocol: UDP
-    targetPort: 53
-  selector:
-    app: pihole
-  sessionAffinity: None
-  type: LoadBalancer
----
-apiVersion: v1
-kind: Service
-metadata:
-  annotations:
-    metallb.universe.tf/ip-allocated-from-pool: pihole
-  labels:
-    app: pihole
-  name: pihole-dmz
-  namespace: home
-spec:
-  externalTrafficPolicy: Local
-  internalTrafficPolicy: Cluster
-  ports:
-  - name: dns
-    port: 53
-    protocol: TCP
-    targetPort: 53
-  - name: dnsudp
-    port: 53
-    protocol: UDP
-    targetPort: 53
-  selector:
-    app: pihole
+    number: "1"
   sessionAffinity: None
   type: LoadBalancer
 
@@ -213,7 +212,7 @@ spec:
           env:
             - name: TZ
               value: "Europe/Stockholm"
-            - name: WEBPASSWORD
+            - name: FTLCONF_webserver_api_password
               value: "v2password"
           #securityContext:
           #  privileged: true
@@ -228,16 +227,21 @@ spec:
               protocol: TCP
             - containerPort: 443
               protocol: TCP
+      nodeSelector:
+        pihole: "2"
+
+---
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    metallb.universe.tf/ip-allocated-from-pool: lan
+    metallb.universe.tf/address-pool: dmz
   labels:
     app: pihole
     number: "2"
-  name: pihole-2
+  name: pihole-dmz-2
   namespace: home
 spec:
   ports:
@@ -256,36 +260,6 @@ spec:
   selector:
     app: pihole
     number: "2"
-  sessionAffinity: None
-  type: LoadBalancer
----
-apiVersion: v1
-kind: Service
-metadata:
-  annotations:
-    metallb.universe.tf/ip-allocated-from-pool: lan
-  labels:
-    app: pihole
-    number: "1"
-  name: pihole-1
-  namespace: home
-spec:
-  ports:
-  - name: dns
-    port: 53
-    protocol: TCP
-    targetPort: 53
-  - name: dnsudp
-    port: 53
-    protocol: UDP
-    targetPort: 53
-  - name: web
-    port: 80
-    protocol: TCP
-    targetPort: 80
-  selector:
-    app: pihole
-    number: "1"
   sessionAffinity: None
   type: LoadBalancer
 

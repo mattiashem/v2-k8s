@@ -1,0 +1,17 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: n8n-hrb
+  namespace: home
+spec:
+  instances: 1
+  bootstrap:
+    initdb:
+      database: n8n
+      owner: n8n
+  storage:
+    size: 30Gi
+  monitoring:
+    enablePodMonitor: true
+

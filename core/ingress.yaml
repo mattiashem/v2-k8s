@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: home-ollebo-com
+    external-dns.alpha.kubernetes.io/hostname: grafana.socomp.se
+    external-dns.alpha.kubernetes.io/target: lb.v2.socomp.se
+    kubernetes.io/ingress.class: traefik
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  generation: 3
+  name: grafana
+  namespace: metrics
+spec:
+  rules:
+  - host: grafana.socomp.se
+    http:
+      paths:
+      - backend:
+          service:
+            name: grafana
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - grafana.socomp.se
+    secretName: grafana-tls

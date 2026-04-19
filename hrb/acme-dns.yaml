@@ -1,0 +1,19 @@
+# acme-dns accounts registered at auth.acme-dns.io
+# The actual secret is stored in cert-manager namespace as acme-dns-accounts
+# See clusterissuer-dns.yaml for the ClusterIssuer configuration
+#
+# This file documents the CNAME records that must exist in OnlyDomains DNS:
+#
+# _acme-challenge.bluesky.robots.beer      CNAME  8a92317d-b87c-40dd-808e-95e06db8d531.auth.acme-dns.io
+# _acme-challenge.chat.robots.beer         CNAME  a74d7634-57ce-439a-8b50-b2e79b4ea886.auth.acme-dns.io
+# _acme-challenge.files.robots.beer        CNAME  05fe68c6-079b-482b-b9b0-48b07386362b.auth.acme-dns.io
+# _acme-challenge.hacking.robots.beer      CNAME  97b593cf-b0f3-450a-ac0c-49a889642d5e.auth.acme-dns.io
+# _acme-challenge.mail.server.robots.beer  CNAME  f0d682e1-6802-4585-a136-32ba5ef55f13.auth.acme-dns.io
+# _acme-challenge.mailweb.server.robots.beer CNAME 0877b09c-8f7b-4511-b100-c77617925f0a.auth.acme-dns.io
+# _acme-challenge.meet.robots.beer         CNAME  4ff27d19-e93c-4925-930b-3d8cf7d4301e.auth.acme-dns.io
+# _acme-challenge.sql.server.robots.beer   CNAME  b8597834-eafa-4603-8903-f52ad47af8f6.auth.acme-dns.io
+#
+# To recreate the secret (e.g. after cluster wipe):
+# kubectl create secret generic acme-dns-accounts \
+#   --namespace cert-manager \
+#   --from-file=acme-dns-accounts.json=acme-dns-accounts.json

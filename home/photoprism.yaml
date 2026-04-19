@@ -9,38 +9,8 @@ metadata:
   name: photoprism-secrets
   namespace: photoprism
 stringData:
-  PHOTOPRISM_ADMIN_PASSWORD: v2Passswords
-  PHOTOPRISM_DATABASE_DSN: prisma:prisma@tcp(maria.home.svc:3306)/prisma?charset=utf8mb4,utf8&parseTime=true
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: photoprism-import
-  namespace: photoprism
-  annotations:
-    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
-spec:
-  storageClassName: truenas-iscsi-nonroot
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1000Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: photoprism-orginal
-  namespace: photoprism
-  annotations:
-    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
-spec:
-  storageClassName: truenas-iscsi-nonroot
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 3000Gi
+  PHOTOPRISM_ADMIN_PASSWORD: v2Home
+  PHOTOPRISM_DATABASE_DSN: root:prisma@tcp(mariadb:3306)/prisma?charset=utf8mb4,utf8&parseTime=true
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -55,7 +25,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 2Gi
+      storage: 20Gi
 
 ---
 apiVersion: apps/v1
@@ -95,23 +65,25 @@ spec:
         - containerPort: 2342
           name: http
         volumeMounts:
-        - mountPath: /photoprism/originals
-          name: originals
         - mountPath: /photoprism/import
           name: import
         - mountPath: /photoprism/storage
           name: storage
+        - mountPath: /photoprism/originals
+          name: nfs-vol
         readinessProbe:
           httpGet:
             path: /api/v1/status
             port: http
       volumes:
-      - name: originals
-        persistentVolumeClaim:
-          claimName: photoprism-orginal
+      - name: nfs-vol
+        nfs:
+          server: 10.0.0.10
+          path: /mnt/disk/media/Bilder
       - name: import
-        persistentVolumeClaim:
-          claimName: photoprism-import
+        nfs:
+          server: 10.0.0.10
+          path: /mnt/disk/media/photoprism
       - name: storage
         persistentVolumeClaim:
           claimName: photoprism-storage
@@ -135,3 +107,116 @@ spec:
     app: photoprism
   type: LoadBalancer
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-pvc
+  namespace: photoprism
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: mariadb-config
+    namespace: photoprism  
+data:
+    my.cnf: |
+        [mysqld]
+        bind-address=0.0.0.0
+        default_storage_engine=InnoDB
+        innodb_file_per_table=1
+        max_connections=1000
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb
+  namespace: photoprism
+spec:
+  serviceName: "mariadb"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb  # Ensure this label matches the selector
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:latest
+          ports:
+            - containerPort: 3306
+              name: mariadb
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "prisma"
+          volumeMounts:
+            - name: mariadb-storage
+              mountPath: /var/lib/mysql
+            - name: config-volume
+              mountPath: /etc/mysql/conf.d
+      volumes:
+        - name: config-volume
+          configMap:
+            name: mariadb-config
+  volumeClaimTemplates:
+    - metadata:
+        name: mariadb-storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: mariadb
+    namespace: photoprism
+spec:
+    ports:
+    - port: 3306
+      targetPort: 3306
+    selector:
+        app: mariadb
+---
+---
+
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: home-ollebo-com
+    kubernetes.io/ingress.class: traefik
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  generation: 3
+  name: photo
+  namespace: photoprism
+spec:
+  rules:
+  - host: photo.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: photoprism
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - photoprism.v2.local
+    secretName: photoprism-tls
+

@@ -1,0 +1,85 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-storage
+  namespace: home
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
+spec:
+  storageClassName: truenas-iscsi-nonroot
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: home
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  serviceName: home
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: phpmyadmin
+        image: phpmyadmin
+        env:
+        - name: PMA_PASSWORD
+          value: "home2222"
+        - name: PMA_HOST
+          value: "127.0.0.1:3306"
+        - name: PMA_USER
+          value: root
+        ports:
+        - containerPort: 80
+          name: http
+      - name: mysql
+        image: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "home2222"
+        ports:
+        - containerPort: 3306
+          name: http
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: storage
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: mysql-storage
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: home
+  annotations:  
+    external-dns.alpha.kubernetes.io/hostname: mysql.socomp.se
+    metallb.universe.tf/address-pool: lan
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  - name: mysql
+    port: 3306
+    protocol: TCP
+    targetPort: 3306
+  selector:
+    app: mysql
+  type: LoadBalancer
+

@@ -1,0 +1,290 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postfix
+  namespace: hrb
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: postfix
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postfix
+    spec:
+      containers:
+      - image: mattiashem/postfix:v14
+        imagePullPolicy: Always
+        name: postfix
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/postfix/main.cf
+          name: postfix-config-main
+          subPath: main.cf
+        - mountPath: /etc/postfix/master.cf
+          name: postfix-config
+          subPath: master.cf
+        - mountPath: /etc/postfix-k8s
+          name: postfix-config
+        - mountPath: /var/mail
+          name: mail
+        - mountPath: /etc/postfix-ssl/
+          name: ssl
+          readOnly: true
+        - mountPath: /etc/dovecot/dovecot-sql.conf
+          name: postfix-config-main
+          subPath: dovecot-sql.conf
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        type: gateway
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: postfix-config
+        name: postfix-config
+      - configMap:
+          defaultMode: 420
+          name: postfix-config-main
+        name: postfix-config-main
+      - name: ssl
+        secret:
+          defaultMode: 420
+          secretName: postfix-tls
+      - name: mail
+        persistentVolumeClaim:
+          claimName: mail
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: amavisd
+  namespace: hrb
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: amavis
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: amavis
+    spec:
+      containers:
+      - image: mattiashem/amavisd:v02
+        imagePullPolicy: Always
+        name: amavis
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/amavisd
+          name: amavis-config
+        - mountPath: /etc/mailname
+          name: amavis-hostname
+          subPath: mailname
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: amavis-config
+        name: amavis-config
+      - configMap:
+          defaultMode: 420
+          name: amavis-hostname
+        name: amavis-hostname
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opendkim
+  namespace: hrb
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: opendkim
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: opendkim
+    spec:
+      containers:
+      - image: instrumentisto/opendkim
+        imagePullPolicy: Always
+        name: opendkim
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/opendkim/opendkim.conf
+          name: opendkim-config
+          subPath: opendkim.conf
+        - mountPath: /etc/opendkim/TrustedHosts
+          name: opendkim-config
+          subPath: TrustedHosts
+        - mountPath: /etc/opendkim/KeyTable
+          name: opendkim-config
+          subPath: KeyTable
+        - mountPath: /etc/opendkim/SigningTable
+          name: opendkim-config
+          subPath: SigningTable
+        - mountPath: /etc/opendkim/keys/
+          name: opendkim-keys
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 200
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 416
+          name: opendkim-config
+        name: opendkim-config
+      - configMap:
+          defaultMode: 420
+          name: opendkim-keys
+        name: opendkim-keys
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mail-admin
+  namespace: hrb
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: mail-admin
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: mail-admin
+    spec:
+      containers:
+      - env:
+        - name: POSTFIXADMIN_DB_TYPE
+          value: mysqli
+        - name: POSTFIXADMIN_DB_HOST
+          value: main-mysql-master
+        - name: POSTFIXADMIN_DB_USER
+          value: postfixadmin
+        - name: POSTFIXADMIN_DB_NAME
+          value: postfixadmin
+        - name: POSTFIXADMIN_DB_PASSWORD
+          value: postfixadminPassword
+        - name: POSTFIXADMIN_SMTP_SERVER
+          value: postfix
+        - name: POSTFIXADMIN_SMTP_PORT
+          value: '25'
+        - name: POSTFIXADMIN_ENCRYPT
+          value: md5crypt
+        - name: POSTFIXADMIN_SETUP_PASSWORD
+          value: $2y$10$qOfC0aNO9EhKiE6mX7t0ROJoShFlD9hyZpRv4/6t6qzORX0g1Xf5e
+        image: postfixadmin:latest
+        imagePullPolicy: Always
+        name: mail-admin
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mail-web
+  namespace: hrb
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: mail-web
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: mail-web
+    spec:
+      containers:
+      - env:
+        - name: POSTFIXADMIN_DB_TYPE
+          value: mysqli
+        image: hardware/rainloop
+        imagePullPolicy: Always
+        name: mail-web
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /rainloop/data
+          name: mail
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: mail
+        persistentVolumeClaim:
+          claimName: mail-web

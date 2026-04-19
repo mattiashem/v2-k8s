@@ -1,0 +1,207 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/instance: files
+  name: bluesky.robots.beer
+  namespace: hrb
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: bluesky.robots.beer
+    uid: 5952bd13-278c-461b-ac53-a6f26e4e8dda
+spec:
+  dnsNames:
+  - bluesky.robots.beer
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: http
+  secretName: bluesky.robots.beer
+  usages:
+  - digital signature
+  - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/instance: hrb-seed
+  name: chat.robots.beer
+  namespace: hrb
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: chat
+    uid: 0387a179-c119-446e-9cd3-9d217604cb04
+spec:
+  dnsNames:
+  - chat.robots.beer
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: http
+  secretName: chat.robots.beer
+  usages:
+  - digital signature
+  - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/instance: files
+  name: files2.robots.beer
+  namespace: hrb
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: files.robots.beer
+    uid: dd0522d7-3b62-4925-9626-d4bd249d49e3
+spec:
+  dnsNames:
+  - files.robots.beer
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: http
+  secretName: files2.robots.beer
+  usages:
+  - digital signature
+  - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/instance: hacking.robots.beer
+  name: hacking.robots.beer
+  namespace: hrb
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: hacking.robots.beer
+    uid: 984032df-45a2-4bc7-9815-0d92ab6cb6b7
+spec:
+  dnsNames:
+  - hacking.robots.beer
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: http
+  secretName: hacking.robots.beer
+  usages:
+  - digital signature
+  - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/instance: hrb-seed
+  name: mail.server.robots.beer
+  namespace: hrb
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: mailadmin
+    uid: 25475097-f191-4b91-8e27-c7b8cabce122
+spec:
+  dnsNames:
+  - mail.server.robots.beer
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: http
+  secretName: mail.server.robots.beer
+  usages:
+  - digital signature
+  - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/instance: hrb-seed
+  name: mailweb.server.robots.beer
+  namespace: hrb
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: mailweb
+    uid: ea956f1b-02b7-4b8c-8813-f9cae0ddcc06
+spec:
+  dnsNames:
+  - mailweb.server.robots.beer
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: http
+  secretName: mailweb.server.robots.beer
+  usages:
+  - digital signature
+  - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/instance: files
+  name: meet.robots.beer
+  namespace: hrb
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: meet.robots.beer
+    uid: 8a4e256c-b507-424a-9d29-c84dd479ef48
+spec:
+  dnsNames:
+  - meet.robots.beer
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: http
+  secretName: meet.robots.beer
+  usages:
+  - digital signature
+  - key encipherment
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/instance: hrb-seed
+  name: sql.server.robots.beer
+  namespace: hrb
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Ingress
+    name: phpmyadmin
+    uid: 48cae1a9-892a-44ab-966b-bc394782841b
+spec:
+  dnsNames:
+  - sql.server.robots.beer
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: http
+  secretName: sql.server.robots.beer
+  usages:
+  - digital signature
+  - key encipherment

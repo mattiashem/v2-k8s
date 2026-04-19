@@ -1,0 +1,11 @@
+githubConfigUrl: https://github.com/ollebo/
+githubConfigSecret: github-runner-ollebo
+containerMode:
+  type: "dind"
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-gha-rs-controller
+template:
+  spec:
+    nodeSelector:
+      beta.kubernetes.io/arch: arm64

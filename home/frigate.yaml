@@ -39,6 +39,38 @@ spec:
                       - detect
                       - clips
                       - record
+            baksidan:
+              ffmpeg:
+                inputs:
+                  - path: rtsp://10.0.0.21:554/s0 
+                    roles:
+                      - detect
+                      - clips
+                      - record
+            garage:
+              ffmpeg:
+                inputs:
+                  - path: rtsp://10.0.0.24:554/s0 
+                    roles:
+                      - detect
+                      - clips
+                      - record
+            framsidan:
+              ffmpeg:
+                inputs:
+                  - path: rtsp://10.0.0.25:554/s0 
+                    roles:
+                      - detect
+                      - clips
+                      - record
+            door:
+              ffmpeg:
+                inputs:
+                  - path: rtsp://10.100.0.25:554/s0 
+                    roles:
+                      - detect
+                      - clips
+                      - record
 
 
   destination:

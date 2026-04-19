@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-storage
+  namespace:  immich
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "truenas-iscsi-nonroot"
+spec:
+  storageClassName: truenas-iscsi-nonroot
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2000Gi
+

@@ -36,7 +36,7 @@ metadata:
   name: dmz
   namespace: metallb-system
 spec:
-  autoAssign: false
+  autoAssign: true
   addresses:
   - 10.0.0.100/32
   - 10.0.0.101/32
@@ -45,6 +45,14 @@ spec:
   - 10.0.0.104/32
   - 10.0.0.105/32
   - 10.0.0.106/32
+  - 10.0.0.107/32
+  - 10.0.0.108/32
+  - 10.0.0.109/32
+  - 10.0.0.110/32
+  - 10.0.0.111/32
+  - 10.0.0.112/32
+  - 10.0.0.113/32
+  - 10.0.0.114/32
 ---
 
 apiVersion: metallb.io/v1beta1
@@ -55,8 +63,6 @@ metadata:
 spec:
   autoAssign: false
   addresses:
-  - 192.168.1.14/32
-  - 192.168.1.15/32
   - 192.168.1.40/32
   - 192.168.1.41/32
   - 192.168.1.42/32
@@ -73,7 +79,7 @@ metadata:
 spec:
   autoAssign: false
   addresses:
-  - 10.0.0.107/32
+  - 10.0.0.117/32
 ---
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
@@ -83,7 +89,7 @@ metadata:
 spec:
   autoAssign: false
   addresses:
-  - 192.168.1.12/32
+  - 192.168.1.17/32
 ---
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
@@ -93,7 +99,7 @@ metadata:
 spec:
   autoAssign: false
   addresses:
-  - 192.168.1.13/32
+  - 192.168.1.16/32
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
@@ -102,9 +108,44 @@ metadata:
   namespace: metallb-system
 spec:
   ipAddressPools:
-  - lan
   - dmz
   - pihole
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: lan
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - lan
+  nodeSelectors:
+  - matchLabels:
+      network: lan
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: pihole-lan
+  namespace: metallb-system
+spec:
+  ipAddressPools:
   - pihole-lan
+  nodeSelectors:
+  - matchLabels:
+      pihole: "1"
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: pihole-lan2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
   - pihole-lan2
+  nodeSelectors:
+  - matchLabels:
+      pihole: "2"
+
+
 

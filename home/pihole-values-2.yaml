@@ -1,0 +1,24 @@
+replicaCount: 1
+doh:
+  enabled: true
+dnsmasq:
+  customDnsEntries:
+    - address=/nas/192.168.1.10
+ 
+  customCnameEntries:
+    - cname=foo.nas,nas
+
+persistentVolumeClaim:
+  enabled: false
+
+serviceWeb:
+  annotations:
+    metallb.universe.tf/allow-shared-ip: pihole-lan2
+    metallb.universe.tf/ip-allocated-from-pool: pihole-lan2
+  type: LoadBalancer
+
+serviceDns:
+  annotations:
+    metallb.universe.tf/allow-shared-ip: pihole-lan2
+    metallb.universe.tf/ip-allocated-from-pool: pihole-lan2
+  type: LoadBalancer
