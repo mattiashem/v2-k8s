@@ -1,26 +1,35 @@
 ollama:
   gpu:
-    # -- Enable GPU integration
     enabled: false
-    # -- GPU type: 'nvidia' or 'amd'
-    type: 'nvidia'
-    # -- Specify the number of GPU to 1
-    number: 1
-  # -- List of models to pull at container startup
   models:
     pull:
       - mistral
-      - llamai2
+      - llama3
+
+# RK3588 tuning: single concurrent request, keep model warm for 5 min
+extraEnv:
+  - name: OLLAMA_NUM_PARALLEL
+    value: "1"
+  - name: OLLAMA_KEEP_ALIVE
+    value: "5m"
+
 nodeSelector:
-  nvidia: "true"
-tolerations:
-- key: "nvidia"
-  operator: "Exists"
-  effect: "NoSchedule"
+  kubernetes.io/hostname: turing2
+
+tolerations: []
+
+persistentVolume:
+  enabled: true
+  size: 50Gi
+
 ingress:
   enabled: true
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+    external-dns.alpha.kubernetes.io/hostname: ollama.v2.local
   hosts:
-  - host: ollama.vs.local
+  - host: ollama.v2.local
     paths:
       - path: /
         pathType: Prefix

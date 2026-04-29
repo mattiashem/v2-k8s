@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openwebui-data
+  namespace: home
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openwebui
+  namespace: home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openwebui
+  template:
+    metadata:
+      labels:
+        app: openwebui
+    spec:
+      containers:
+        - name: openwebui
+          image: ghcr.io/open-webui/open-webui:main
+          imagePullPolicy: Always
+          env:
+            - name: OLLAMA_BASE_URL
+              value: "http://ollama.ollama.svc.cluster.local:11434"
+            - name: WEBUI_SECRET_KEY
+              value: "hrb-openwebui-secret-k3y-2024"
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: data
+              mountPath: /app/backend/data
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 1Gi
+              cpu: 500m
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: openwebui-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openwebui
+  namespace: home
+spec:
+  selector:
+    app: openwebui
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openwebui
+  namespace: home
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: ollama-ui.v2.local
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+spec:
+  rules:
+    - host: ollama-ui.v2.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: openwebui
+                port:
+                  number: 8080
