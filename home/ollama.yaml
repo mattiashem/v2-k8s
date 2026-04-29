@@ -14,6 +14,12 @@ extraEnv:
   - name: OLLAMA_KEEP_ALIVE
     value: "5m"
 
+resources:
+  requests:
+    memory: 28Gi
+  limits:
+    memory: 30Gi
+
 nodeSelector:
   kubernetes.io/hostname: turing2
 
