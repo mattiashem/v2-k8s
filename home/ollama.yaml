@@ -17,7 +17,11 @@ extraEnv:
 nodeSelector:
   kubernetes.io/hostname: turing2
 
-tolerations: []
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "ollama"
+    effect: "NoExecute"
 
 persistentVolume:
   enabled: true
