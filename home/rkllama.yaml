@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rkllama
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rkllama-models
+  namespace: rkllama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rkllama
+  namespace: rkllama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rkllama
+  template:
+    metadata:
+      labels:
+        app: rkllama
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: turing2
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "ollama"
+          effect: "NoExecute"
+      containers:
+        - name: rkllama
+          image: ghcr.io/notpunchnox/rkllama:main
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: models
+              mountPath: /opt/rkllama/models
+          resources:
+            requests:
+              memory: 2Gi
+            limits:
+              memory: 8Gi
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: rkllama-models
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rkllama
+  namespace: rkllama
+spec:
+  selector:
+    app: rkllama
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rkllama
+  namespace: rkllama
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: rkllama.v2.local
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+spec:
+  rules:
+    - host: rkllama.v2.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rkllama
+                port:
+                  number: 8080

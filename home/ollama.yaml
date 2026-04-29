@@ -16,7 +16,7 @@ extraEnv:
 
 resources:
   requests:
-    memory: 28Gi
+    memory: 20Gi
   limits:
     memory: 30Gi
 
