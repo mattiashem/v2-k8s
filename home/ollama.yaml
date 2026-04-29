@@ -5,6 +5,7 @@ ollama:
     pull:
       - mistral
       - llama3
+      - gemma3:12b
 
 # RK3588 tuning: single concurrent request, keep model warm for 5 min
 extraEnv:
