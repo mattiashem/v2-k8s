@@ -32,6 +32,8 @@ spec:
           env:
             - name: OLLAMA_BASE_URL
               value: "http://ollama.ollama.svc.cluster.local:11434"
+            - name: OLLAMA_BASE_URLS
+              value: "http://ollama.ollama.svc.cluster.local:11434;http://rkllama.rkllama.svc.cluster.local:8080"
             - name: WEBUI_SECRET_KEY
               value: "hrb-openwebui-secret-k3y-2024"
           ports:
