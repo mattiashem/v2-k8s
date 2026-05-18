@@ -110,11 +110,8 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    cert-manager.io/cluster-issuer: home-ollebo-com
     kubernetes.io/ingress.class: traefik
-    kubernetes.io/tls-acme: "true"
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
-  generation: 3
+    traefik.ingress.kubernetes.io/router.entrypoints: web
   name: zigbee
   namespace: home
 spec:
@@ -129,9 +126,5 @@ spec:
               number: 8080
         path: /
         pathType: Prefix
-  tls:
-  - hosts:
-    - zigbee.v2.local
-    secretName: zigbee-tls
 
 
