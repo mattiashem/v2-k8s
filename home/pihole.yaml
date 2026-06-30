@@ -298,10 +298,16 @@ spec:
               value: "http://pihole-dmz-2.home.svc|v2password"
             - name: FULL_SYNC
               value: "true"
+            # Rebuild the replica's gravity (blocklist) DB after each import.
+            # Without this the secondary keeps its default ~80k list and would
+            # not block what the primary blocks on failover.
             - name: RUN_GRAVITY
-              value: "false"
+              value: "true"
+            # Hourly: config + a full gravity rebuild (downloads the adlists).
+            # Every 5 min would hammer the blocklist providers; the secondary is
+            # failover-only so hourly freshness is plenty.
             - name: CRON
-              value: "*/5 * * * *"
+              value: "0 * * * *"
             - name: TZ
               value: "Europe/Stockholm"
           resources:
