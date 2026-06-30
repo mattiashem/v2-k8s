@@ -84,6 +84,28 @@ spec:
   type: ClusterIP
 
 ---
+# Direct LAN LoadBalancer for HA-to-HA links (Remote Home Assistant on 192.168.1.2).
+# Bypasses Traefik so the long-lived WebSocket has no proxy in the path.
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    metallb.universe.tf/address-pool: lan
+  labels:
+    app: homeassistant
+  name: homeassistant-lan
+  namespace: home
+spec:
+  ports:
+  - name: ha
+    port: 8123
+    protocol: TCP
+    targetPort: 8123
+  selector:
+    app: homeassistant
+  type: LoadBalancer
+
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
