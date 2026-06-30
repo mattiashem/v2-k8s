@@ -1,0 +1,240 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frigate
+  labels:
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: frigate-utomhus-mqtt
+  namespace: frigate
+type: Opaque
+stringData:
+  MQTT_PASSWORD: "erCyF3yKUsJr3X0LmePw77mK"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: frigate-utomhus-config
+  namespace: frigate
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frigate-utomhus-config
+  namespace: frigate
+data:
+  config.yml: |
+    mqtt:
+      host: "mosquitto-mqtts.home.svc"
+      port: 1883
+      topic_prefix: frigate-utomhus
+      client_id: frigate-utomhus
+      user: frigate-utomhus
+      password: "{FRIGATE_MQTT_PASSWORD}"
+    detectors:
+      coral:
+        type: edgetpu
+        device: usb
+    record:
+      enabled: True
+      alerts:
+        retain:
+          days: 30
+          mode: motion
+      detections:
+        retain:
+          days: 30
+          mode: motion
+    snapshots:
+      enabled: True
+      retain:
+        default: 30
+    go2rtc:
+      streams:
+        tak:
+          - "ffmpeg:http://192.168.1.58/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password=frigate55"
+        portal:
+          - "ffmpeg:rtsp://frigate:frigate55@192.168.1.94:554/h264Preview_01_main"
+        tomten:
+          - "ffmpeg:http://10.0.0.39/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password=frigate55"
+        altan:
+          - "ffmpeg:http://10.0.0.44/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user=frigate&password=frigate55"
+        doorbell:
+          - "ffmpeg:rtsp://admin:Vete22@192.168.1.114:554/h264Preview_01_main"
+    cameras:
+      doorbell:
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/doorbell
+              input_args: preset-rtsp-restream
+              roles:
+                - detect
+                - record
+                - clips
+      altan:
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/altan
+              input_args: preset-rtsp-restream
+              roles:
+                - detect
+                - record
+                - clips
+      tak:
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/tak
+              input_args: preset-rtsp-restream
+              roles:
+                - detect
+                - record
+                - clips
+      portal:
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/portal
+              input_args: preset-rtsp-restream
+              roles:
+                - detect
+                - record
+                - clips
+      tomten:
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/tomten
+              input_args: preset-rtsp-restream
+              roles:
+                - detect
+                - record
+                - clips
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: frigate-utomhus
+  namespace: frigate
+spec:
+  selector:
+    matchLabels:
+      app: frigate-utomhus
+  serviceName: frigate-utomhus
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: frigate-utomhus
+    spec:
+      containers:
+      - name: frigate
+        image: ghcr.io/blakeblackshear/frigate:stable-rk
+        securityContext:
+          privileged: true
+        env:
+        - name: FRIGATE_RTSP_PASSWORD
+          value: "rtsgtff"
+        - name: LIBVA_DRIVER_NAME
+          value: radeonsi
+        - name: FRIGATE_MQTT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: frigate-utomhus-mqtt
+              key: MQTT_PASSWORD
+        ports:
+        - containerPort: 8971
+          name: https
+        - containerPort: 5000
+          name: http-open
+        - containerPort: 8554
+          name: rtsp
+        volumeMounts:
+        - mountPath: /media/frigate
+          name: nfs-vol
+        - mountPath: /config/config.yml
+          subPath: config.yml
+          name: config
+        - mountPath: /config/
+          name: config-storage
+        - name: dshm
+          mountPath: /dev/shm
+        - name: coral-dev
+          mountPath: /dev/bus/usb
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http-open
+      nodeSelector:
+        kubernetes.io/hostname: turing2
+      volumes:
+      - name: nfs-vol
+        nfs:
+          server: 10.0.0.10
+          path: /mnt/disk/media/Frigate/utomhus
+      - name: config
+        configMap:
+          name: frigate-utomhus-config
+      - name: coral-dev
+        hostPath:
+          path: /dev/bus/usb
+      - name: dshm
+        emptyDir: {}
+      - name: config-storage
+        persistentVolumeClaim:
+          claimName: frigate-utomhus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frigate-utomhus
+  namespace: frigate
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: frigate-utomhus.v2.local
+    metallb.universe.tf/address-pool: dmz
+spec:
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: https
+  - name: http-open
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  - name: rtsp
+    port: 8554
+    protocol: TCP
+    targetPort: 8554
+  selector:
+    app: frigate-utomhus
+  type: LoadBalancer
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  name: frigate-utomhus
+  namespace: frigate
+spec:
+  rules:
+  - host: frigate-utomhus.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: frigate-utomhus
+            port:
+              number: 5000
+        path: /
+        pathType: Prefix

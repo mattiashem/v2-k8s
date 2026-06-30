@@ -1,0 +1,219 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: frigate-inomhus-mqtt
+  namespace: frigate
+type: Opaque
+stringData:
+  MQTT_PASSWORD: "QUsf5KlkIR7NyHYI3EtIhP3y"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: frigate-inomhus-config
+  namespace: frigate
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frigate-inomhus-config
+  namespace: frigate
+data:
+  config.yml: |
+    mqtt:
+      host: "mosquitto-mqtts.home.svc"
+      port: 1883
+      topic_prefix: frigate-inomhus
+      client_id: frigate-inomhus
+      user: frigate-inomhus
+      password: "{FRIGATE_MQTT_PASSWORD}"
+    detectors:
+      coral:
+        type: edgetpu
+        device: usb
+    record:
+      enabled: True
+      alerts:
+        retain:
+          days: 30
+          mode: motion
+      detections:
+        retain:
+          days: 30
+          mode: motion
+    snapshots:
+      enabled: True
+      retain:
+        default: 30
+    go2rtc:
+      streams:
+        baksidan:
+          - rtsp://10.0.0.21:554/s0
+        framsidan:
+          - rtsp://10.0.0.25:554/s0
+        door:
+          - rtsp://10.100.0.25:554/s0
+    cameras:
+      baksidan:
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/baksidan
+              input_args: preset-rtsp-restream
+              roles:
+                - detect
+                - record
+                - clips
+      framsidan:
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/framsidan
+              input_args: preset-rtsp-restream
+              roles:
+                - detect
+                - record
+                - clips
+      door:
+        ffmpeg:
+          inputs:
+            - path: rtsp://127.0.0.1:8554/door
+              input_args: preset-rtsp-restream
+              roles:
+                - detect
+                - record
+                - clips
+          output_args:
+            record: preset-record-generic-audio-copy
+      garage:
+        ffmpeg:
+          inputs:
+            - path: rtsp://10.0.0.24:554/s0
+              roles:
+                - detect
+                - record
+                - clips
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: frigate-inomhus
+  namespace: frigate
+spec:
+  selector:
+    matchLabels:
+      app: frigate-inomhus
+  serviceName: frigate-inomhus
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: frigate-inomhus
+    spec:
+      containers:
+      - name: frigate
+        image: ghcr.io/blakeblackshear/frigate:stable
+        securityContext:
+          privileged: true
+        env:
+        - name: FRIGATE_RTSP_PASSWORD
+          value: "rtsgtff"
+        - name: LIBVA_DRIVER_NAME
+          value: radeonsi
+        - name: FRIGATE_MQTT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: frigate-inomhus-mqtt
+              key: MQTT_PASSWORD
+        ports:
+        - containerPort: 8971
+          name: https
+        - containerPort: 5000
+          name: http-open
+        - containerPort: 8554
+          name: rtsp
+        volumeMounts:
+        - mountPath: /media/frigate
+          name: nfs-vol
+        - mountPath: /config/config.yml
+          subPath: config.yml
+          name: config
+        - mountPath: /config/
+          name: config-storage
+        - name: dshm
+          mountPath: /dev/shm
+        - name: coral-dev
+          mountPath: /dev/bus/usb
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http-open
+      nodeSelector:
+        kubernetes.io/hostname: talos-wyx-ktb
+      volumes:
+      - name: nfs-vol
+        nfs:
+          server: 10.0.0.10
+          path: /mnt/disk/media/Frigate/inomhus
+      - name: config
+        configMap:
+          name: frigate-inomhus-config
+      - name: coral-dev
+        hostPath:
+          path: /dev/bus/usb
+      - name: dshm
+        emptyDir: {}
+      - name: config-storage
+        persistentVolumeClaim:
+          claimName: frigate-inomhus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frigate-inomhus
+  namespace: frigate
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: frigate-inomhus.v2.local
+    metallb.universe.tf/address-pool: dmz
+spec:
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: https
+  - name: http-open
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  - name: rtsp
+    port: 8554
+    protocol: TCP
+    targetPort: 8554
+  selector:
+    app: frigate-inomhus
+  type: LoadBalancer
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+  name: frigate-inomhus
+  namespace: frigate
+spec:
+  rules:
+  - host: frigate-inomhus.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: frigate-inomhus
+            port:
+              number: 5000
+        path: /
+        pathType: Prefix
