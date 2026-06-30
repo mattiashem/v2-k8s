@@ -40,21 +40,9 @@ spec:
         number: "1"
     spec:
       containers:
-        - name: orbital
-          # https://hub.docker.com/r/pihole/pihole/tags
-          image: mattwebbio/orbital-sync:1
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: PRIMARY_HOST_BASE_URL
-              value: "http://pihole-dmz.home.svc"
-            - name: PRIMARY_HOST_PASSWORD
-              value: "v2password"
-            - name: SECONDARY_HOSTS_1_BASE_URL
-              value: "http://pihole-dmz-2.home.svc"
-            - name: SECONDARY_HOSTS_1_PASSWORD
-              value: "v2password"
-            - name: INTERVAL_MINUTES
-              value: "5"
+        # orbital-sync removed: v1 only speaks the Pi-hole v5 /admin login API,
+        # which is gone in Pi-hole v6 (returns 404). Replaced by the standalone
+        # nebula-sync Deployment below, which uses the v6 Teleporter API.
         - name: pihole
           # https://hub.docker.com/r/pihole/pihole/tags
           image: pihole/pihole:latest
@@ -104,7 +92,7 @@ kind: Service
 metadata:
   annotations:
     metallb.universe.tf/address-pool: pihole-lan2
-    external-dns.alpha.kubernetes.io/hostname: pihole.socomp.se
+    external-dns.alpha.kubernetes.io/hostname: pihole.v2.local
   labels:
     app: pihole
   name: pihole-lan2
@@ -147,12 +135,16 @@ spec:
     port: 53
     protocol: UDP
     targetPort: 53
+  # Round-robin HA VIP (192.168.1.17): selects BOTH pihole pods.
+  # externalTrafficPolicy: Cluster so the MetalLB owner node can forward to a
+  # pod on either node -> load-balances across both, and fails over to the
+  # surviving pod if one is down (e.g. primary's disk won't mount).
+  # Tradeoff: client source IPs are SNAT'd on this VIP. Per-client query stats
+  # remain on the per-instance admin VIPs (pihole-dmz / pihole-dmz-2).
   selector:
     app: pihole
-    number: "1"
-  #sessionAffinity: None
-  internalTrafficPolicy: Local
-  externalTrafficPolicy: Local
+  internalTrafficPolicy: Cluster
+  externalTrafficPolicy: Cluster
   type: LoadBalancer
 ---
 apiVersion: v1
@@ -262,4 +254,49 @@ spec:
     number: "2"
   sessionAffinity: None
   type: LoadBalancer
+
+---
+# Pi-hole v6 config replication: primary (source of truth) -> secondary (clean).
+# Uses the v6 Teleporter API (FULL_SYNC), so the secondary is fully overwritten
+# from the primary every run. Standalone so a sync/image failure never affects DNS.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nebula-sync
+  namespace: home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nebula-sync
+  template:
+    metadata:
+      labels:
+        app: nebula-sync
+    spec:
+      containers:
+        - name: nebula-sync
+          # https://github.com/lovelaze/nebula-sync — verify tag pulls (ImagePullBackOff = bump)
+          image: ghcr.io/lovelaze/nebula-sync:v0.13.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PRIMARY
+              value: "http://pihole-dmz.home.svc|v2password"
+            - name: REPLICAS
+              value: "http://pihole-dmz-2.home.svc|v2password"
+            - name: FULL_SYNC
+              value: "true"
+            - name: RUN_GRAVITY
+              value: "false"
+            - name: CRON
+              value: "*/5 * * * *"
+            - name: TZ
+              value: "Europe/Stockholm"
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 10m
+            limits:
+              memory: 128Mi
+              cpu: 200m
 
