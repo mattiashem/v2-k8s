@@ -52,6 +52,12 @@ spec:
               value: "Europe/Stockholm"
             - name: FTLCONF_webserver_api_password
               value: "v2password"
+            # ALL (not LOCAL): queries arrive via the LoadBalancer VIP from
+            # non-pod-local sources (and SNAT'd node IPs under Cluster policy),
+            # so LOCAL mode silently drops every LAN query. Required for the
+            # round-robin VIP to actually answer 192.168.1.0/24 clients.
+            - name: FTLCONF_dns_listeningMode
+              value: "ALL"
           #securityContext:
           #  privileged: true
           ports:
@@ -206,6 +212,12 @@ spec:
               value: "Europe/Stockholm"
             - name: FTLCONF_webserver_api_password
               value: "v2password"
+            # ALL (not LOCAL): queries arrive via the LoadBalancer VIP from
+            # non-pod-local sources (and SNAT'd node IPs under Cluster policy),
+            # so LOCAL mode silently drops every LAN query. Required for the
+            # round-robin VIP to actually answer 192.168.1.0/24 clients.
+            - name: FTLCONF_dns_listeningMode
+              value: "ALL"
           #securityContext:
           #  privileged: true
           ports:
