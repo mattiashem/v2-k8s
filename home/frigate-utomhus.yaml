@@ -51,8 +51,8 @@ data:
         - person
       filters:
         person:
-          min_score: 0.6
-          threshold: 0.8
+          min_score: 0.5
+          threshold: 0.7
     record:
       enabled: True
       alerts:
@@ -89,6 +89,10 @@ data:
                 - detect
                 - record
                 - clips
+        objects:
+          filters:
+            person:
+              threshold: 0.6
       altan:
         ffmpeg:
           inputs:
