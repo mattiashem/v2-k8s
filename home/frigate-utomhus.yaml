@@ -92,7 +92,8 @@ data:
         objects:
           filters:
             person:
-              threshold: 0.6
+              min_score: 0.6
+              threshold: 0.75
       altan:
         ffmpeg:
           inputs:
