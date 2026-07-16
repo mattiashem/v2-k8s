@@ -111,6 +111,8 @@ data:
                 - detect
                 - record
                 - clips
+        detect:
+          enabled: false
       portal:
         ffmpeg:
           inputs:
