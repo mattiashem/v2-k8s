@@ -12,5 +12,10 @@ spec:
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
+    # Auto-sync, like the mantiser apps on the prod cluster. This is an unattended
+    # scheduled job, so a manifest change should reach the cluster without someone
+    # remembering to press sync. Prune and selfHeal stay off so the PVC and the
+    # out-of-band secrets are never touched.
+    automated: {}
     syncOptions:
       - CreateNamespace=true
