@@ -1,0 +1,98 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: collect-car
+---
+# state/ and images/ must survive between runs.
+#
+# state/ is what stops the scraper re-submitting the whole catalogue every night:
+# the car API bumps `version` on every PUT, so a run without prior state would add
+# ~78k pointless versions. images/ is the only home the galleries have at all —
+# the car API has no image field.
+#
+# Sized well above the current ~250 MB (bytbil's state file dominates and grows
+# with the catalogue); the atomic writes need room for a second copy while the
+# .tmp file is being written.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: collect-car-data
+  namespace: collect-car
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: collect-car
+  namespace: collect-car
+spec:
+  # 01:00 UTC. dinbil and kvd finish in minutes; bytbil fetches a detail page per
+  # car at ~0.5s and takes roughly 10 hours, so the run lands mid-morning.
+  schedule: "0 1 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # ~11h expected; this is a stuck-run guard, not a target.
+      activeDeadlineSeconds: 72000
+      # No retry: a failed attempt would restart the 10-hour bytbil walk from the
+      # beginning. The entrypoint already isolates sources from each other, and the
+      # next nightly run picks up from the persisted state.
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr
+          # Satisfies the "restricted" Pod Security Standard. fsGroup is what lets
+          # the non-root user write state/ and images/ onto the Longhorn volume.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: collect-car
+              image: ghcr.io/mantiser-com/collect-car:latest
+              imagePullPolicy: Always
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: MANTISER_CAR_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: collect-car-api
+                      key: MANTISER_CAR_API_KEY
+                - name: COLLECT_CAR_DATA_DIR
+                  value: /data
+                # Fast sources first, so a bytbil problem never delays them.
+                - name: COLLECT_CAR_SOURCES
+                  value: "dinbil kvd bytbil"
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 1Gi
+                limits:
+                  cpu: "1"
+                  # bytbil holds ~78k car payloads in memory plus the image store.
+                  memory: 4Gi
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: collect-car-data

@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: collect-car
+  namespace: argocd
+spec:
+  project: core
+  source:
+    repoURL: git@github.com:mattiashem/v2-k8s.git
+    targetRevision: HEAD
+    path: collect-car
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
