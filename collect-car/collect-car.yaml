@@ -79,8 +79,9 @@ spec:
                 - name: COLLECT_CAR_DATA_DIR
                   value: /data
                 # Fast sources first, so a bytbil problem never delays them.
+                # autoscout24 (~minutes) runs before bytbil's ~10h walk.
                 - name: COLLECT_CAR_SOURCES
-                  value: "dinbil kvd bytbil"
+                  value: "dinbil kvd autoscout24 bytbil"
               volumeMounts:
                 - name: data
                   mountPath: /data
