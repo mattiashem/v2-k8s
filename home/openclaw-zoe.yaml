@@ -135,12 +135,15 @@ metadata:
   name: openclaw-zoe
   namespace: openclaw-zoe
 spec:
+  type: NodePort
   selector:
     app: openclaw-zoe
   ports:
   - name: http
     port: 18789
     targetPort: 18789
+    # direct gateway access on every node IP, bypassing Traefik host routing
+    nodePort: 31789
   - name: bridge
     port: 18790
     targetPort: 18790
@@ -156,6 +159,16 @@ metadata:
 spec:
   rules:
   - host: openclaw-zoe.v2.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: openclaw-zoe
+            port:
+              number: 18789
+        path: /
+        pathType: Prefix
+  - host: zoe.v2.local
     http:
       paths:
       - backend:
