@@ -55,3 +55,45 @@ spec:
     # API credits, so this stays a deliberate press-the-button deploy.
     syncOptions:
       - CreateNamespace=true
+      # Makes ignoreDifferences authoritative during sync, not just during diff.
+      # Without it the chart would happily overwrite the CRD schema again.
+      # Same pattern core/metallb.yaml already uses for its webhook caBundles.
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # The chart's packaged SoftwareTask CRD is stale relative to the v0.1.0
+    # operator it ships with — no `skills`, no `mcpServers`, and an agent enum
+    # of just [claude-code]. kubefoundry/crd-softwaretask.yaml carries upstream's
+    # own generated CRD for the same tag instead; this hands the schema over to
+    # it so a chart sync cannot stomp it back to the broken version.
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: softwaretasks.factory.factory.io
+      jsonPointers:
+        - /spec/versions
+---
+# CRD corrections + Skills that the Helm chart fails to ship. Split into its own
+# Application (rather than inlined here) because the two CRDs are ~1000 lines of
+# generated schema, and because they must be able to sync independently of the
+# chart.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubefoundry-config
+  namespace: argocd
+spec:
+  project: core
+  source:
+    repoURL: git@github.com:mattiashem/v2-k8s.git
+    targetRevision: HEAD
+    path: kubefoundry
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubefoundry
+  syncPolicy:
+    # Manual, like the chart app. Deliberate: syncing this changes the schema
+    # the operator validates tasks against.
+    syncOptions:
+      - CreateNamespace=true
+      # The generated CRDs exceed the 262144-byte annotation limit that a
+      # client-side apply would need for last-applied-configuration.
+      - ServerSideApply=true

@@ -1,0 +1,60 @@
+# Points the OpenCode agent at berget.ai (EU-hosted, OpenAI-compatible) instead
+# of Anthropic, by overwriting the config.json baked into the agent image.
+#
+# There is no first-class custom-endpoint support in kube-foundry — the string
+# BASE_URL does not appear anywhere in the codebase. This works by way of the
+# skill `files` mechanism: the OpenCode entrypoint writes each file with
+#     mkdir -p "$(dirname "$fpath")"; echo "$content" > "$fpath"
+# so an absolute path lands wherever we point it.
+#
+# ⚠️  The path MUST be absolute. At the time skill files are injected the
+# entrypoint has already done `cd /workspace/repo`, so a relative path would
+# write the config INTO THE CLONED REPO and the agent would commit it into the
+# pull request. Absolute path keeps it out of the working tree.
+#
+# ⚠️  apiKey reads {env:ANTHROPIC_API_KEY} — that is not a typo. The operator
+# picks the env var name via agentAPIKeyName(), which returns ANTHROPIC_API_KEY
+# for every agent except `codex`. So the BERGET key goes into the
+# ANTHROPIC_API_KEY field of the factory-creds Secret. Badly named, but it means
+# nothing has to be rebuilt or patched.
+apiVersion: factory.factory.io/v1alpha1
+kind: Skill
+metadata:
+  name: berget
+  namespace: kubefoundry
+spec:
+  description: Route the OpenCode agent to berget.ai (EU sovereign, OpenAI-compatible)
+
+  files:
+    - path: /home/opencode/.config/opencode/config.json
+      content: |
+        {
+          "$schema": "https://opencode.ai/config.json",
+          "model": "berget/CHANGE-ME-MODEL-ID",
+          "provider": {
+            "berget": {
+              "npm": "@ai-sdk/openai-compatible",
+              "name": "Berget AI",
+              "options": {
+                "baseURL": "https://api.berget.ai/v1",
+                "apiKey": "{env:ANTHROPIC_API_KEY}"
+              },
+              "models": {
+                "CHANGE-ME-MODEL-ID": {
+                  "name": "Berget model"
+                }
+              }
+            }
+          }
+        }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Before this will run, replace BOTH occurrences of CHANGE-ME-MODEL-ID with a
+# real berget model id. List them with:
+#
+#   curl -s https://api.berget.ai/v1/models \
+#     -H "Authorization: Bearer $BERGET_API_KEY" | jq -r '.data[].id'
+#
+# Pick a strong instruct/tool-calling model. OpenCode drives everything through
+# tool calls, so a weak model fails in ways that look like kube-foundry bugs
+# rather than model limitations.
