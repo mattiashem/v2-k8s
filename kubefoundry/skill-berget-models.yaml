@@ -1,0 +1,46 @@
+# Per-task model overrides for the berget provider.
+#
+# These carry NO provider config and NO files — only an env var. Use them
+# alongside the `berget` skill, which supplies the provider block and the
+# default model:
+#
+#   spec:
+#     agent: open-code
+#     skills:
+#       - berget          # provider block + default model
+#       - berget-large    # overrides only BERGET_MODEL
+#
+# ⚠️  ORDER MATTERS. The operator appends each skill's env in list order
+# (`env = append(env, skill.Spec.Env...)`), producing two BERGET_MODEL entries
+# in the pod spec. Kubernetes resolves duplicate env names to the LAST
+# occurrence, so the override skill must come AFTER `berget` in the list.
+# Reverse them and the default silently wins.
+#
+# ⚠️  Do not reference two of these at once — the last one still wins, but the
+# intent becomes unreadable.
+#
+# ⚠️  Every id used here must also be declared in the `models` map in
+# skill-berget-opencode.yaml. The top-level `model` field selects from that map;
+# it does not register a model. An id missing from the map will fail at runtime.
+---
+apiVersion: factory.factory.io/v1alpha1
+kind: Skill
+metadata:
+  name: berget-large
+  namespace: kubefoundry
+spec:
+  description: Override — use the large berget model (harder tasks, higher cost)
+  env:
+    - name: BERGET_MODEL
+      value: "berget/CHANGE-ME-LARGE-MODEL"
+---
+apiVersion: factory.factory.io/v1alpha1
+kind: Skill
+metadata:
+  name: berget-fast
+  namespace: kubefoundry
+spec:
+  description: Override — use the fast/cheap berget model (simple mechanical edits)
+  env:
+    - name: BERGET_MODEL
+      value: "berget/CHANGE-ME-FAST-MODEL"

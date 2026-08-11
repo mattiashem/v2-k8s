@@ -2,21 +2,33 @@
 # of Anthropic, by overwriting the config.json baked into the agent image.
 #
 # There is no first-class custom-endpoint support in kube-foundry — the string
-# BASE_URL does not appear anywhere in the codebase. This works by way of the
+# BASE_URL does not appear anywhere in its codebase. This works by way of the
 # skill `files` mechanism: the OpenCode entrypoint writes each file with
 #     mkdir -p "$(dirname "$fpath")"; echo "$content" > "$fpath"
 # so an absolute path lands wherever we point it.
 #
 # ⚠️  The path MUST be absolute. At the time skill files are injected the
 # entrypoint has already done `cd /workspace/repo`, so a relative path would
-# write the config INTO THE CLONED REPO and the agent would commit it into the
-# pull request. Absolute path keeps it out of the working tree.
+# write the config INTO THE CLONED REPO — and step 5 runs `git add -A`, so it
+# would be committed straight into the pull request.
 #
 # ⚠️  apiKey reads {env:ANTHROPIC_API_KEY} — that is not a typo. The operator
 # picks the env var name via agentAPIKeyName(), which returns ANTHROPIC_API_KEY
 # for every agent except `codex`. So the BERGET key goes into the
 # ANTHROPIC_API_KEY field of the factory-creds Secret. Badly named, but it means
 # nothing has to be rebuilt or patched.
+#
+# ── Model selection ──────────────────────────────────────────────────────────
+# The model is NOT hardcoded in the JSON. OpenCode expands {env:VAR} in the
+# `model` field, not just in `apiKey`, so the choice is carried by an env var
+# this Skill supplies. That makes the model a one-line change, and lets a task
+# override it without duplicating this provider block — see
+# skill-berget-models.yaml.
+#
+# `small_model` is set deliberately. OpenCode uses it for lightweight work like
+# title generation, and it does NOT inherit the provider above. Left unset it
+# reaches for its own default (an Anthropic model) and fails with an auth error
+# that reads as though the MAIN model were misconfigured.
 apiVersion: factory.factory.io/v1alpha1
 kind: Skill
 metadata:
@@ -25,12 +37,23 @@ metadata:
 spec:
   description: Route the OpenCode agent to berget.ai (EU sovereign, OpenAI-compatible)
 
+  env:
+    # Default model for any task referencing this skill. Format is
+    # "<provider>/<model-id>" — the "berget/" prefix is required, it selects the
+    # provider block below. Override per task with a model-only skill.
+    - name: BERGET_MODEL
+      value: "berget/CHANGE-ME-DEFAULT-MODEL"
+    # Cheap model for title generation and other incidental calls.
+    - name: BERGET_SMALL_MODEL
+      value: "berget/CHANGE-ME-SMALL-MODEL"
+
   files:
     - path: /home/opencode/.config/opencode/config.json
       content: |
         {
           "$schema": "https://opencode.ai/config.json",
-          "model": "berget/CHANGE-ME-MODEL-ID",
+          "model": "{env:BERGET_MODEL}",
+          "small_model": "{env:BERGET_SMALL_MODEL}",
           "provider": {
             "berget": {
               "npm": "@ai-sdk/openai-compatible",
@@ -40,8 +63,11 @@ spec:
                 "apiKey": "{env:ANTHROPIC_API_KEY}"
               },
               "models": {
-                "CHANGE-ME-MODEL-ID": {
-                  "name": "Berget model"
+                "CHANGE-ME-DEFAULT-MODEL": {
+                  "name": "Berget default"
+                },
+                "CHANGE-ME-SMALL-MODEL": {
+                  "name": "Berget small"
                 }
               }
             }
@@ -49,12 +75,15 @@ spec:
         }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Before this will run, replace BOTH occurrences of CHANGE-ME-MODEL-ID with a
-# real berget model id. List them with:
+# Replace the CHANGE-ME ids with real berget model ids. List them with:
 #
 #   curl -s https://api.berget.ai/v1/models \
 #     -H "Authorization: Bearer $BERGET_API_KEY" | jq -r '.data[].id'
 #
-# Pick a strong instruct/tool-calling model. OpenCode drives everything through
-# tool calls, so a weak model fails in ways that look like kube-foundry bugs
-# rather than model limitations.
+# ⚠️  Every model you intend to use must appear in the `models` map above. The
+# top-level `model` field only SELECTS from that map — it does not register a
+# model. A BERGET_MODEL pointing at an id that is absent here will fail.
+#
+# Pick a strong instruct/tool-calling model as the default. OpenCode drives
+# everything through tool calls, so a weak model fails in ways that look like
+# kube-foundry bugs rather than model limitations.
