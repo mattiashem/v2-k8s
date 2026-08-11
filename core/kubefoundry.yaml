@@ -1,0 +1,57 @@
+# kube-foundry — Kubernetes-native AI software engineering factory.
+# https://kube-foundry.io  |  https://github.com/kube-foundry/kube-foundry
+#
+# Operator + webhook server watch SoftwareTask CRs, spawn a sandbox pod running
+# an AI coding agent (Claude Code / Codex / OpenCode), and the agent opens a PR.
+#
+# Chart lives in an OCI registry, not a classic Helm repo, so it needs a
+# repository entry with enableOCI. Registry is public — no credentials.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kube-foundry-oci
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  name: kube-foundry
+  type: helm
+  url: ghcr.io/kube-foundry/kube-foundry
+  enableOCI: "true"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubefoundry
+  namespace: argocd
+spec:
+  project: core
+  source:
+    chart: kube-foundry
+    repoURL: ghcr.io/kube-foundry/kube-foundry
+    targetRevision: 0.1.0
+    helm:
+      releaseName: kube-foundry
+      values: |
+        # The chart stamps this into every rendered object's metadata.namespace,
+        # so it must match spec.destination.namespace below or the sync splits
+        # resources across two namespaces.
+        namespace: kubefoundry
+
+        # The chart's NetworkPolicy is unusable here on two counts:
+        #   1. The `core` AppProject namespaceResourceBlacklist denies
+        #      NetworkPolicy, so ArgoCD would refuse to sync it anyway.
+        #   2. Its allowedEgress is a hardcoded CIDR list (GitHub + a Cloudflare
+        #      range fronting the Anthropic API) with no DNS rule at all, so
+        #      sandboxes could not even resolve github.com.
+        networkPolicy:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubefoundry
+  syncPolicy:
+    # Manual sync, matching the other core infra apps. Sandbox pods burn real
+    # API credits, so this stays a deliberate press-the-button deploy.
+    syncOptions:
+      - CreateNamespace=true
