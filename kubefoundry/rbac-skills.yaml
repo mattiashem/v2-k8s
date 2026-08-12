@@ -33,6 +33,20 @@ rules:
       - get
       - list
       - watch
+  # Second gap in the same chart ClusterRole, surfacing only once the Skill
+  # informer stopped erroring: the operator watches ServiceAccounts (it needs
+  # one for the sandbox pod it spawns) but was never granted them either.
+  #   failed to list *v1.ServiceAccount: serviceaccounts is forbidden
+  # Same symptom as above — the task sits with an empty status and no pod.
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - get
+      - list
+      - watch
+      - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
