@@ -42,10 +42,10 @@ spec:
     # "<provider>/<model-id>" — the "berget/" prefix is required, it selects the
     # provider block below. Override per task with a model-only skill.
     - name: BERGET_MODEL
-      value: "berget/CHANGE-ME-DEFAULT-MODEL"
+      value: "berget/zai-org/GLM-5.2"
     # Cheap model for title generation and other incidental calls.
     - name: BERGET_SMALL_MODEL
-      value: "berget/CHANGE-ME-SMALL-MODEL"
+      value: "berget/mistralai/Mistral-Small-3.2-24B-Instruct-2506"
 
   files:
     - path: /home/opencode/.config/opencode/config.json
@@ -63,11 +63,14 @@ spec:
                 "apiKey": "{env:ANTHROPIC_API_KEY}"
               },
               "models": {
-                "CHANGE-ME-DEFAULT-MODEL": {
+                "zai-org/GLM-5.2": {
                   "name": "Berget default"
                 },
-                "CHANGE-ME-SMALL-MODEL": {
+                "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
                   "name": "Berget small"
+                },
+                "moonshotai/Kimi-K3": {
+                  "name": "Berget large"
                 }
               }
             }
@@ -75,15 +78,19 @@ spec:
         }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Replace the CHANGE-ME ids with real berget model ids. List them with:
+# Model ids come from berget's catalogue — re-list it with:
 #
 #   curl -s https://api.berget.ai/v1/models \
 #     -H "Authorization: Bearer $BERGET_API_KEY" | jq -r '.data[].id'
 #
 # ⚠️  Every model you intend to use must appear in the `models` map above. The
 # top-level `model` field only SELECTS from that map — it does not register a
-# model. A BERGET_MODEL pointing at an id that is absent here will fail.
+# model. A BERGET_MODEL pointing at an id that is absent here will fail. That is
+# why Kimi-K3 is listed here even though only skill-berget-models.yaml's
+# `berget-large` selects it: the override skills set BERGET_MODEL but reuse this
+# skill's config.json, so an id missing from this map cannot be selected at all.
 #
-# Pick a strong instruct/tool-calling model as the default. OpenCode drives
-# everything through tool calls, so a weak model fails in ways that look like
-# kube-foundry bugs rather than model limitations.
+# Chosen defaults: GLM-5.2 for the default (strong tool-calling — OpenCode drives
+# everything through tool calls, and a weak model fails in ways that look like
+# kube-foundry bugs), Mistral-Small for small_model/`berget-fast`, Kimi-K3 for
+# `berget-large`.

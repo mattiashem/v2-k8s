@@ -32,7 +32,7 @@ spec:
   description: Override — use the large berget model (harder tasks, higher cost)
   env:
     - name: BERGET_MODEL
-      value: "berget/CHANGE-ME-LARGE-MODEL"
+      value: "berget/moonshotai/Kimi-K3"
 ---
 apiVersion: factory.factory.io/v1alpha1
 kind: Skill
@@ -43,4 +43,4 @@ spec:
   description: Override — use the fast/cheap berget model (simple mechanical edits)
   env:
     - name: BERGET_MODEL
-      value: "berget/CHANGE-ME-FAST-MODEL"
+      value: "berget/mistralai/Mistral-Small-3.2-24B-Instruct-2506"
