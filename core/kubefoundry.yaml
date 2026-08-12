@@ -39,6 +39,31 @@ spec:
         # resources across two namespaces.
         namespace: kubefoundry
 
+        # Upstream's agent-open-code:v0.1.0 ships the entrypoint but NOT the
+        # opencode binary, so every `agent: open-code` task died at step 4/6
+        # with "opencode: command not found" (exit 127). Everything else in
+        # that image is fine, so elino-apps/cloudbilder builds a thin layer
+        # over it that installs a pinned opencode release.
+        #
+        # open-code is the agent we need: it is the only one that can be
+        # pointed at an OpenAI-compatible endpoint (berget.ai) through its
+        # config.json provider block — see kubefoundry/skill-berget-opencode.yaml.
+        # claude-code speaks the Anthropic Messages API, which berget does not
+        # serve (POST /v1/messages -> 404), and agent-codex:v0.1.0 is broken a
+        # different way (ships codex-cli 0.117.0 but its entrypoint calls
+        # --approval-mode, removed in that version).
+        #
+        # amd64 only — the upstream base image is published for that platform
+        # alone, so sandbox pods must schedule onto an amd64 node.
+        #
+        # Revert to the upstream repository if a later release ships a working
+        # image; check `command -v opencode` in it before assuming it is fixed.
+        agent:
+          openCode:
+            image:
+              repository: ghcr.io/elino-apps/cloudbilder/agent-open-code
+              tag: v0.1.0
+
         # The chart's NetworkPolicy is unusable here on two counts:
         #   1. The `core` AppProject namespaceResourceBlacklist denies
         #      NetworkPolicy, so ArgoCD would refuse to sync it anyway.
