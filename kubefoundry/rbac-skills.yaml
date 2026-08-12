@@ -1,0 +1,48 @@
+# RBAC for the Skill CRD, which the v0.1.0 Helm chart does not ship.
+#
+# crd-skill.yaml adds the CRD, but the chart's `kube-foundry-operator` ClusterRole
+# only grants softwaretasks/pods/secrets/configmaps/events/leases — nothing for
+# `skills`. Without this the operator's Skill informer cannot start:
+#
+#   Failed to watch *v1alpha1.Skill: skills.factory.factory.io is forbidden:
+#   User "system:serviceaccount:kubefoundry:kube-foundry-operator" cannot list
+#   resource "skills" in API group "factory.factory.io" at the cluster scope
+#
+# and every SoftwareTask referencing spec.skills sits with an empty status, no
+# sandbox pod and no events — the failure surfaces only in the operator log.
+#
+# Deliberately a SEPARATE ClusterRole rather than an edit to the chart's: that
+# one is chart-managed, so a Helm sync would revert an in-place change. Same
+# reasoning as the crd-softwaretask.yaml / ignoreDifferences split.
+#
+# Read-only is sufficient — the operator resolves spec.skills into sandbox env
+# vars and files, it never writes Skill objects back.
+#
+# Drop this file if a later chart version ships the Skill CRD with its own RBAC.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-foundry-operator-skills
+rules:
+  - apiGroups:
+      - factory.factory.io
+    resources:
+      - skills
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-foundry-operator-skills
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-foundry-operator-skills
+subjects:
+  - kind: ServiceAccount
+    name: kube-foundry-operator
+    namespace: kubefoundry
