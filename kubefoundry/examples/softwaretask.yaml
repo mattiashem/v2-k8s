@@ -1,0 +1,70 @@
+# Template for a one-shot SoftwareTask. Copy it, edit it, apply it.
+#
+#   cp examples/softwaretask.yaml /tmp/my-task.yaml
+#   $EDITOR /tmp/my-task.yaml
+#   kubectl apply -f /tmp/my-task.yaml
+#
+# ⚠️  Do NOT commit a real task into kubefoundry/ itself. ArgoCD syncs that
+# directory and would recreate the task forever, re-running the agent (and
+# re-spending LLM credits) every time you delete it. This examples/ subdirectory
+# is safe: the kubefoundry-config Application does not recurse into subdirs.
+#
+# The agent creates branch `factory/<metadata.name>` and opens a PR against
+# spec.branch. Re-running a task whose branch already exists on the remote will
+# collide — delete the remote branch first, or use a new task name.
+---
+apiVersion: factory.factory.io/v1alpha1
+kind: SoftwareTask
+metadata:
+  # Becomes the branch name (factory/<name>), so keep it short and descriptive.
+  name: CHANGE-ME-project-what-it-does
+  namespace: kubefoundry
+spec:
+  # HTTPS only — the CRD enforces ^https://
+  repo: https://github.com/CHANGE-ME-org/CHANGE-ME-repo
+  branch: main
+
+  # open-code   → routed to berget.ai (this is the one we use)
+  # claude-code → works, but needs a real Anthropic key; berget cannot back it
+  # codex       → broken in v0.1.0, see README
+  agent: open-code
+
+  # `berget` supplies the provider block and the default model.
+  # Add an override AFTER it for a different model:
+  #   skills: [berget, berget-large]   # harder task, higher cost
+  #   skills: [berget, berget-fast]    # simple mechanical edit
+  # Order matters — duplicate env names resolve to the LAST occurrence.
+  skills:
+    - berget
+
+  credentials:
+    # Per-project Secret, same namespace as this task. Must contain
+    # ANTHROPIC_API_KEY (the LLM key) and GITHUB_TOKEN (write access to repo).
+    secretRef: factory-creds-CHANGE-ME-project
+
+  gitAuthorName: kube-foundry
+  gitAuthorEmail: CHANGE-ME@example.com
+
+  resources:
+    cpu: "2"
+    memory: 4Gi
+    # Max 120. The agent is killed at this point with no PR, so give slow or
+    # exploratory work more room than you think it needs.
+    timeoutMinutes: 30
+
+  # The agent knows nothing except this text and what it can read in the repo.
+  # What actually works, learned the hard way:
+  #   - tell it to READ before editing, or it guesses at file locations
+  #   - bound the scope explicitly, or the diff sprawls
+  #   - name the constraints that matter (don't break mobile, keep the API)
+  #   - ask it to explain the change in the PR description
+  task: |
+    CHANGE-ME — describe the work in plain language.
+
+    Guidance:
+    - Locate the relevant files and read them before changing anything.
+    - Keep the change minimal and focused: <the specific area>. Do not
+      restructure unrelated code or touch unrelated files.
+    - <constraints that must not break>
+    - In the pull request description, state exactly which files you changed
+      and why.
