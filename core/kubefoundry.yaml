@@ -45,6 +45,18 @@ spec:
         # that image is fine, so elino-apps/cloudbilder builds a thin layer
         # over it that installs a pinned opencode release.
         #
+        # v0.2.0 adds the build toolchain on top: Node 24, Go 1.25, Python 3
+        # and build-essential. Upstream's base has git, jq, gh and curl and
+        # nothing else, so an agent could edit these repos but never build or
+        # test them — the first mail-client task ended in "Agent produced no
+        # changes" because its plan opened with `npx shadcn init` and node was
+        # not installed.
+        #
+        # Sandbox pods pull IfNotPresent, so this tag is never republished with
+        # new contents — a bump here is how a new image actually reaches the
+        # nodes, and it only takes effect when the operator restarts with the
+        # new flag.
+        #
         # open-code is the agent we need: it is the only one that can be
         # pointed at an OpenAI-compatible endpoint (berget.ai) through its
         # config.json provider block — see kubefoundry/skill-berget-opencode.yaml.
@@ -62,7 +74,7 @@ spec:
           openCode:
             image:
               repository: ghcr.io/elino-apps/cloudbilder/agent-open-code
-              tag: v0.1.0
+              tag: v0.2.0
 
         # The chart's NetworkPolicy is unusable here on two counts:
         #   1. The `core` AppProject namespaceResourceBlacklist denies
