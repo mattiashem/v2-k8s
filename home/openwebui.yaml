@@ -30,10 +30,16 @@ spec:
           image: ghcr.io/open-webui/open-webui:main
           imagePullPolicy: Always
           env:
+            # NOTE: Open WebUI treats these as "PersistentConfig" — they only SEED the DB on
+            # first launch. After that `ollama.base_urls` in /app/backend/data/webui.db (on the
+            # PVC) wins and these values are ignored. Change the DB + restart, or set
+            # ENABLE_PERSISTENT_CONFIG=false, if you need env to take effect.
+            # 10.0.0.83 = workstation "base" (qwen3:8b/4b, qwen2.5-coder:7b, Vulkan iGPU)
+            # 10.0.0.20 = jetson (gemma4, qwen2.5, phi3)
             - name: OLLAMA_BASE_URL
-              value: "http://ollama.ollama.svc.cluster.local:11434"
+              value: "http://10.0.0.83:11434"
             - name: OLLAMA_BASE_URLS
-              value: "http://ollama.ollama.svc.cluster.local:11434;http://rkllama.rkllama.svc.cluster.local:8080"
+              value: "http://10.0.0.83:11434;http://10.0.0.20:11434"
             - name: WEBUI_SECRET_KEY
               value: "hrb-openwebui-secret-k3y-2024"
           ports:
