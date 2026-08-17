@@ -1,0 +1,31 @@
+- id: varmepump_styrning_borta
+  alias: Värmepump styrning borta
+  description: 'Vakt för den patchade thermiq_mqtt-integrationen. 3.1.0 har en bugg
+    som gör alla 48 input_number unavailable; vi kör en patchad input_number.py. En
+    HACS-uppdatering skriver tyst över patchen och tar bort ALL styrning av värmepumpen
+    - läsningen fortsätter fungera, så felet syns inte. Larmar efter 15 min och naggar
+    var 12:e timme tills det är åtgärdat. Åtgärd: applicera om patchen, se
+    home/thermiq-patch/ i v2-k8s. 2026-08-17'
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.varmepump_styrningar_otillgangliga
+    above: 0
+    for:
+      minutes: 15
+  - trigger: time_pattern
+    hours: /12
+  conditions:
+  - condition: numeric_state
+    entity_id: sensor.varmepump_styrningar_otillgangliga
+    above: 0
+  actions:
+  - action: telegram_bot.send_message
+    data:
+      message: >-
+        🔧 Värmepumpens styrning är borta: {{ states('sensor.varmepump_styrningar_otillgangliga')
+        }} av {{ state_attr('sensor.varmepump_styrningar_otillgangliga', 'totalt') }}
+        reglage svarar inte (t.ex. {{ state_attr('sensor.varmepump_styrningar_otillgangliga',
+        'exempel') }}). Trolig orsak: en HACS-uppdatering av thermiq_mqtt har skrivit
+        över patchen i input_number.py. Läsning fungerar, men inget går att ställa
+        om. Åtgärd: applicera om patchen från v2-k8s (home/thermiq-patch/).
+  mode: single

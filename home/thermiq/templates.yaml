@@ -1,0 +1,91 @@
+# ThermIQ / Thermia varmepump - harledda hjalpsensorer.
+# Underhalls fran v2-k8s-repot. Se home/THERMIQ.md avsnitt 6.
+# Ladda om med:  action: template.reload   (ingen omstart behovs)
+#
+# VIKTIGT om flodesgrindarna nedan:
+# Ett delta-T ar bara definierat nar det finns floden i kretsen. Star pumpen
+# stilla driver givarna isar och siffran blir skrap - matt 2026-08-17 gav
+# stillastaende krets -3 K pa koldbararen och +28 K pa varmebararen, medan tre
+# uppmatta korningar 2026-08-14 gav +2.0..+2.5 K resp. +4.7..+13.4 K.
+# Darfor ar sensorerna 'unavailable' nar respektive pump star still. Det ger
+# hal i grafen - det ar avsiktligt. Ett falskt varde skulle annars skrivas in
+# i langtidsstatistiken permanent och forstora min/max/medel for alltid.
+
+- sensor:
+    # --- Delta-T varmebararkretsen: framledning - returledning -----------
+    # Hur mycket varme som faktiskt lamnas av (radiatorer eller varmvatten).
+    # Uppmatt under drift: +4.7..+13.4 K. Narmar den sig 0 medan pumpen gar
+    # cirkulerar vattnet utan att avge varme - luft i systemet, stangda
+    # ventiler eller trasig cirkulationspump.
+    - name: "Värmepump ΔT värmebärare"
+      unique_id: thermiq_vp1_dt_varmebarare
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:radiator
+      availability: >
+        {{ is_state('binary_sensor.thermiq_mqtt_vp1_supply_pump_on', 'on')
+           and has_value('sensor.thermiq_mqtt_vp1_supplyline_t')
+           and has_value('sensor.thermiq_mqtt_vp1_returnline_t') }}
+      state: >
+        {{ (states('sensor.thermiq_mqtt_vp1_supplyline_t') | float
+            - states('sensor.thermiq_mqtt_vp1_returnline_t') | float) | round(1) }}
+      attributes:
+        framledning: "{{ states('sensor.thermiq_mqtt_vp1_supplyline_t') }}"
+        returledning: "{{ states('sensor.thermiq_mqtt_vp1_returnline_t') }}"
+        pump_varvtal: "{{ states('sensor.thermiq_mqtt_vp1_supply_pump_speed') }}"
+
+    # --- Delta-T koldbararkretsen: in - ut -------------------------------
+    # Hur mycket varme som tas upp ur berget. Uppmatt under drift:
+    # +2.0..+2.5 K, vilket ar normalt och friskt.
+    # Riktningen ar verifierad mot tre riktiga korningar 2026-08-14:
+    # brine_in_t ar den VARMA sidan (kommer fran borrhalet), brine_out_t den
+    # kalla (gar tillbaka ner). Integrationens namn ar alltsa ratt, aven om
+    # dess egna kalibreringsregister d95/d96 ar korsmarkta i kallkoden.
+    # Stigande varde over sasongen = borrhalet racker inte till.
+    - name: "Värmepump ΔT köldbärare"
+      unique_id: thermiq_vp1_dt_koldbarare
+      unit_of_measurement: "°C"
+      device_class: temperature
+      state_class: measurement
+      icon: mdi:snowflake-thermometer
+      availability: >
+        {{ is_state('binary_sensor.thermiq_mqtt_vp1_brine_pump_on', 'on')
+           and has_value('sensor.thermiq_mqtt_vp1_brine_in_t')
+           and has_value('sensor.thermiq_mqtt_vp1_brine_out_t') }}
+      state: >
+        {{ (states('sensor.thermiq_mqtt_vp1_brine_in_t') | float
+            - states('sensor.thermiq_mqtt_vp1_brine_out_t') | float) | round(1) }}
+      attributes:
+        koldbarare_in: "{{ states('sensor.thermiq_mqtt_vp1_brine_in_t') }}"
+        koldbarare_ut: "{{ states('sensor.thermiq_mqtt_vp1_brine_out_t') }}"
+        pump_varvtal: "{{ states('sensor.thermiq_mqtt_vp1_brine_pump_speed') }}"
+
+    # --- Vakt: antal otillgangliga styrentiteter -------------------------
+    # thermiq_mqtt 3.1.0 har en bugg som gor alla 48 input_number
+    # 'unavailable'. Vi kor en patchad input_number.py; en HACS-uppdatering
+    # skriver over den och tar bort styrningen igen - helt tyst.
+    # Den har sensorn gor tystnaden hogljudd (se automation
+    # 'Varmepump styrning borta').
+    # Ett lankavbrott ger INTE unavailable har - input_number behaller sitt
+    # varde nar MQTT tystnar - sa ett varde > 0 pekar pa patchen, inte WiFi.
+    - name: "Värmepump styrningar otillgängliga"
+      unique_id: thermiq_vp1_controls_unavailable
+      unit_of_measurement: "st"
+      state_class: measurement
+      icon: mdi:alert-decagram
+      state: >
+        {{ states.input_number
+           | selectattr('entity_id', 'search', 'thermiq_mqtt_vp1')
+           | selectattr('state', 'in', ['unavailable', 'unknown'])
+           | list | count }}
+      attributes:
+        totalt: >
+          {{ states.input_number
+             | selectattr('entity_id', 'search', 'thermiq_mqtt_vp1')
+             | list | count }}
+        exempel: >
+          {{ states.input_number
+             | selectattr('entity_id', 'search', 'thermiq_mqtt_vp1')
+             | selectattr('state', 'in', ['unavailable', 'unknown'])
+             | map(attribute='entity_id') | list | first | default('-') }}
