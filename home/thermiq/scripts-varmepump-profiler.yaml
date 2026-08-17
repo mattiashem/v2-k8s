@@ -1,0 +1,310 @@
+# Home Assistant scripts. Source of truth: v2-k8s repo, home/thermiq/scripts-varmepump-profiler.yaml
+# Reload with:  action: script.reload
+#
+# Varmepumpsprofiler. Se home/THERMIQ.md avsnitt 9.
+#
+# Varfor en worker + tre tunna wrappers: logiken finns pa ETT stalle. Wrappern ar bara
+# vardena. Lagg till en profil = lagg till en wrapper, inte en kopia av logiken.
+
+varmepump_profil_worker:
+  alias: Värmepump profil - applicera (worker)
+  icon: mdi:heat-pump-outline
+  description: >-
+    Skriver en uppsattning varmepumpsregister, vantar in pumpens eko och verifierar att
+    den verkligen tog varden. Anropas av wrapper-skripten, inte direkt.
+    Tre saker gor den som en naiv skrivning inte gor:
+    (1) gatar pa MQTT-lanken - vid avbrott tystnar skrivningar och main_mode laser
+    "0 - Off" utan att pumpen ar av;
+    (2) skriver varmvattenparet i ratt ordning sa start aldrig hamnar over stopp;
+    (3) vantar 45 s innan verifiering - pumpen ekar tillbaka och skriver over HA inom ~30 s,
+    sa en direkt avlasning bevisar ingenting.
+    Alla skrivbara register ar PERSISTENTA installningar i pumpen, darfor skrivs bara det
+    som faktiskt skiljer sig.
+  mode: single
+  fields:
+    profil:
+      description: Profilnamn, bara for loggning och Telegram
+      example: Sommar
+      required: true
+      selector: {text: null}
+    hw_start:
+      description: hotwater_start_t, varmvatten starttemperatur
+      example: 46
+      required: true
+      selector: {number: {min: 0, max: 100, step: 1}}
+    hw_stop:
+      description: hotwater_stop_t, varmvatten stopptemperatur
+      example: 53
+      required: true
+      selector: {number: {min: 0, max: 100, step: 1}}
+    heat_stop:
+      description: heating_stop_t, utetemp dar varmen stangs av
+      example: 12
+      required: true
+      selector: {number: {min: 0, max: 200, step: 1}}
+    leg_on:
+      description: legionella_run_on, 1 = tillat elpatron for legionellakoret
+      example: 1
+      required: true
+      selector: {number: {min: 0, max: 1, step: 1}}
+    leg_stop:
+      description: legionella_stop_t, maltemperatur for legionellakoret
+      example: 65
+      required: true
+      selector: {number: {min: 0, max: 100, step: 1}}
+    leg_len:
+      description: legionella_run_length_h, langd i timmar (0 = koret gor ingenting)
+      example: 1
+      required: true
+      selector: {number: {min: 0, max: 24, step: 1}}
+    leg_interval:
+      description: legionella_interval_d, intervall i dygn
+      example: 7
+      required: true
+      selector: {number: {min: 0, max: 60, step: 1}}
+    quiet:
+      description: >-
+        true = rapportera bara om nagot avviker. Anvands vid HA-omstart, dar en
+        aterstallning som gick bra inte ar en nyhet. Avvikelser larmar alltid.
+      example: false
+      required: false
+      default: false
+      selector: {boolean: null}
+  sequence:
+    # ---- 1. Gata pa MQTT-lanken -------------------------------------------
+    - if:
+        - condition: not
+          conditions:
+            - condition: state
+              entity_id: sensor.thermiq_mqtt_vp1_communication_status
+              state: 'Ok'
+      then:
+        - action: telegram_bot.send_message
+          continue_on_error: true
+          data:
+            message: >-
+              ⚠️ Värmepumpsprofil "{{ profil }}" avbröts: MQTT-länken svarar inte
+              (communication_status = {{ states('sensor.thermiq_mqtt_vp1_communication_status') }}).
+              Inga register skrevs. Notera att main_mode läser "0 - Off" vid länkavbrott
+              utan att pumpen faktiskt är avstängd.
+        - stop: MQTT-lanken nere, inga skrivningar gjorda
+
+    # ---- 2. Varmvattenparet, i ordning som aldrig ger start >= stopp -------
+    - variables:
+        cur_start: "{{ states('input_number.thermiq_mqtt_vp1_hotwater_start_t') | float(-999) }}"
+        cur_stop: "{{ states('input_number.thermiq_mqtt_vp1_hotwater_stop_t') | float(-999) }}"
+    - if:
+        - condition: template
+          value_template: >-
+            {{ hw_start | float != cur_start | float
+               or hw_stop | float != cur_stop | float }}
+      then:
+        - if:
+            - condition: template
+              value_template: "{{ hw_stop | float >= cur_stop | float }}"
+          then:
+            # Bandet hojs: stopp forst, annars passerar start det gamla stoppet
+            - action: input_number.set_value
+              target: {entity_id: input_number.thermiq_mqtt_vp1_hotwater_stop_t}
+              data: {value: "{{ hw_stop | float }}"}
+            - action: input_number.set_value
+              target: {entity_id: input_number.thermiq_mqtt_vp1_hotwater_start_t}
+              data: {value: "{{ hw_start | float }}"}
+          else:
+            # Bandet sanks: start forst
+            - action: input_number.set_value
+              target: {entity_id: input_number.thermiq_mqtt_vp1_hotwater_start_t}
+              data: {value: "{{ hw_start | float }}"}
+            - action: input_number.set_value
+              target: {entity_id: input_number.thermiq_mqtt_vp1_hotwater_stop_t}
+              data: {value: "{{ hw_stop | float }}"}
+
+    # ---- 3. Ovriga register, skriv bara det som skiljer sig ---------------
+    - repeat:
+        for_each: >-
+          {{ [
+               {'reg': 'heating_stop_t',          'val': heat_stop},
+               {'reg': 'legionella_stop_t',       'val': leg_stop},
+               {'reg': 'legionella_run_length_h', 'val': leg_len},
+               {'reg': 'legionella_interval_d',   'val': leg_interval},
+               {'reg': 'legionella_run_on',       'val': leg_on}
+             ] }}
+        sequence:
+          - if:
+              - condition: template
+                value_template: >-
+                  {{ states('input_number.thermiq_mqtt_vp1_' ~ repeat.item.reg) | float(-999)
+                     != repeat.item.val | float }}
+            then:
+              - action: input_number.set_value
+                target:
+                  entity_id: "input_number.thermiq_mqtt_vp1_{{ repeat.item.reg }}"
+                data: {value: "{{ repeat.item.val | float }}"}
+
+    # ---- 4. Lage: alltid Auto ---------------------------------------------
+    # Skriv ALDRIG main_mode > 4. Integrationen slar upp id_names['mode<N>'] och bara
+    # mode0..mode4 finns; ett hogre varde ger KeyError inne i message_received, som bara
+    # fangar ValueError -> ALLA entiteter slutar uppdateras. input_select ar sakert
+    # (skickar int(option[0])), rå MQTT ar det inte.
+    - if:
+        - condition: template
+          value_template: "{{ not is_state('input_select.thermiq_mqtt_vp1_main_mode', '1 - Auto') }}"
+      then:
+        - action: input_select.select_option
+          target: {entity_id: input_select.thermiq_mqtt_vp1_main_mode}
+          data: {option: '1 - Auto'}
+
+    # ---- 5. Lat pumpen eka tillbaka --------------------------------------
+    - delay: {seconds: 45}
+
+    # ---- 6. Verifiera mot BADA hallen: reglaget och pumpens egen avlasning -
+    - variables:
+        checks: >-
+          {{ [
+               ['hotwater_start_t',        hw_start],
+               ['hotwater_stop_t',         hw_stop],
+               ['heating_stop_t',          heat_stop],
+               ['legionella_run_on',       leg_on],
+               ['legionella_stop_t',       leg_stop],
+               ['legionella_run_length_h', leg_len],
+               ['legionella_interval_d',   leg_interval]
+             ] }}
+    - variables:
+        mismatch: >-
+          {% set ns = namespace(bad=[]) %}
+          {% for c in checks %}
+            {% set inp = states('input_number.thermiq_mqtt_vp1_' ~ c[0]) | float(-999) %}
+            {% set sen = states('sensor.thermiq_mqtt_vp1_' ~ c[0]) | float(-999) %}
+            {% set want = c[1] | float %}
+            {% if inp != want or sen != want %}
+              {% set ns.bad = ns.bad + [c[0] ~ ' (vill ' ~ want ~ ', reglage ' ~ inp ~ ', pump ' ~ sen ~ ')'] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.bad | join(', ') }}
+
+    # ---- 7. Rapportera ----------------------------------------------------
+    - if:
+        - condition: template
+          value_template: "{{ mismatch | trim | length > 0 }}"
+      then:
+        - action: logbook.log
+          data:
+            name: Värmepumpsprofil
+            message: "{{ profil }}: pumpen nekade {{ mismatch }}"
+        - action: telegram_bot.send_message
+          continue_on_error: true
+          data:
+            message: >-
+              ⚠️ Värmepumpsprofil "{{ profil }}": pumpen tog inte alla värden.
+              {{ mismatch }}.
+              Ett fält som hoppar tillbaka betyder att pumpen NEKADE värdet — det är inte
+              ett HA-fel. Kolla att start < stopp och att värdet ligger i pumpens intervall.
+      else:
+        - action: logbook.log
+          data:
+            name: Värmepumpsprofil
+            message: "{{ profil }} aktiverad och verifierad"
+        - if:
+            - condition: template
+              value_template: "{{ not (quiet | default(false) | bool) }}"
+          then:
+            - action: telegram_bot.send_message
+              continue_on_error: true
+              data:
+                message: >-
+                  ✅ Värmepumpsprofil "{{ profil }}" aktiv och verifierad.
+                  Varmvatten {{ hw_start | int }}–{{ hw_stop | int }} °C,
+                  värmestopp {{ heat_stop | int }} °C ute,
+                  legionella {{ 'på' if leg_on | int == 1 else 'av' }}
+                  ({{ leg_stop | int }} °C var {{ leg_interval | int }} dygn).
+
+# =====================================================================
+# Wrappers. Bara varden - all logik ligger i workern ovan.
+# =====================================================================
+
+varmepump_profil_sommar:
+  alias: Värmepump profil - Sommar
+  icon: mdi:weather-sunny
+  description: >-
+    Ingen rumsvärme (värmestopp 12 °C ute i stället för 16), effektivt varmvatten 46-53 °C
+    med veckovis legionellakör till 65 °C. Värmestoppet är den viktiga delen: vid 16 °C
+    startade pumpen en värmebegäran varje augustinatt som cirkulationspumpen sedan körde
+    i 2-3 timmar utan att kompressorn någonsin gick igång.
+  mode: single
+  fields:
+    quiet:
+      description: true = tyst nar allt stammer (anvands vid HA-omstart)
+      example: false
+      required: false
+      default: false
+      selector: {boolean: null}
+  sequence:
+    - action: script.varmepump_profil_worker
+      data:
+        quiet: "{{ quiet | default(false) }}"
+        profil: Sommar
+        hw_start: 46
+        hw_stop: 53
+        heat_stop: 12
+        leg_on: 1
+        leg_stop: 65
+        leg_len: 1
+        leg_interval: 7
+
+varmepump_profil_vinter:
+  alias: Värmepump profil - Vinter
+  icon: mdi:snowflake
+  description: >-
+    Återställer rumsvärmen (värmestopp 17 °C ute) och behåller samma effektiva varmvatten
+    som sommarprofilen - varmvattenoptimum ändras inte med årstiden. Rör INTE värmekurvan;
+    kurvtrimning kräver kalla data och görs separat.
+  mode: single
+  fields:
+    quiet:
+      description: true = tyst nar allt stammer (anvands vid HA-omstart)
+      example: false
+      required: false
+      default: false
+      selector: {boolean: null}
+  sequence:
+    - action: script.varmepump_profil_worker
+      data:
+        quiet: "{{ quiet | default(false) }}"
+        profil: Vinter
+        hw_start: 46
+        hw_stop: 53
+        heat_stop: 17
+        leg_on: 1
+        leg_stop: 65
+        leg_len: 1
+        leg_interval: 7
+
+varmepump_profil_semester:
+  alias: Värmepump profil - Semester
+  icon: mdi:bag-suitcase
+  description: >-
+    Bortrest: 40-52 °C varmvatten och ingen rumsvärme. Sänkt starttemperatur är det som
+    ger besparingen - tanken laddas sällan i stället för svalare, eftersom pumpen inte
+    accepterar ett stopp under ~49 °C (uppmätt 2026-08-17: 52 gick igenom, 48 nekades och
+    registret snappade då till 60). Legionellaköret lämnas PÅ med flit - det är just vid
+    stillastående varmvatten som det behövs.
+  mode: single
+  fields:
+    quiet:
+      description: true = tyst nar allt stammer (anvands vid HA-omstart)
+      example: false
+      required: false
+      default: false
+      selector: {boolean: null}
+  sequence:
+    - action: script.varmepump_profil_worker
+      data:
+        quiet: "{{ quiet | default(false) }}"
+        profil: Semester
+        hw_start: 40
+        hw_stop: 52
+        heat_stop: 12
+        leg_on: 1
+        leg_stop: 65
+        leg_len: 1
+        leg_interval: 7

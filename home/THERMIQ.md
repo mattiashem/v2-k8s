@@ -58,7 +58,9 @@ med `dNNN`-mönstret.
 
 ## 3. Registerkarta
 
-"Värde nu" = avläst 2026-08-16 ~10:30, pumpen i sommardrift (kompressor av).
+"Värde nu" = avläst 2026-08-16 ~10:30, pumpen i sommardrift (kompressor av). Rader märkta
+**🅿️** styrs av profilerna (avsnitt 9) och visar värdet i profilen **Sommar**, satt 2026-08-17 —
+ändra dem via väljaren, inte för hand, annars skriver nästa profilkörning över.
 "HA-domän" visar var registret hamnar som entitet — prefixa med `thermiq_mqtt_vp1_`.
 
 ### A. Avläsning (skrivskyddade register)
@@ -102,13 +104,13 @@ Varje skrivbart register har **två** entiteter: den skrivbara `input_*` som vis
 |---|---|---|---|---|---|---|---|
 | `d50` | `r32` | `indoor_requested_t` | Önskad innetemperatur | °C | 0…50 | input_number | 21.0 |
 | `d51` | `r33` | `main_mode` | Driftläge |  | 0…16 | input_select | 1 - Auto |
-| `d52` | `r34` | `integral1_curve_slope` | Värmekurva (lutning) | °C | 0…200 | input_number | 39.0 |
+| `d52` | `r34` | `integral1_curve_slope` | Värmekurva (nivå) | °C | 0…200 | input_number | 39.0 |
 | `d53` | `r35` | `integral1_curve_min` | Kurva min | °C | 0…200 | input_number | 10.0 |
 | `d54` | `r36` | `integral1_curve_max` | Kurva max | °C | 0…200 | input_number | 65.0 |
 | `d55` | `r37` | `integral1_curve_p5` | Kurva +5 | °C | -5…5 | input_number | 0.0 |
 | `d56` | `r38` | `integral1_curve_0` | Kurva 0 | °C | -5…5 | input_number | 0.0 |
 | `d57` | `r39` | `integral1_curve_n5` | Kurva −5 | °C | -5…5 | input_number | 0.0 |
-| `d58` | `r3a` | `heating_stop_t` | Värmestopp (utetemp.) | °C | 0…200 | input_number | 16.0 |
+| `d58` | `r3a` | `heating_stop_t` | Värmestopp (utetemp.) 🅿️ | °C | 0…200 | input_number | 12.0 |
 | `d59` | `r3b` | `reduction_t` | Temperatursänkning (natt) | °C | 0…100 | input_number | 2.0 |
 | `d60` | `r3c` | `room_factor` | Rumsfaktor | factor | 0…4 | input_number | 2.0 |
 | `d61` | `r3d` | `integral2_curve_slope` | Kurva 2 | °C | 0…200 | input_number | 40.0 |
@@ -118,11 +120,11 @@ Varje skrivbart register har **två** entiteter: den skrivbara `input_*` som vis
 | `d65` | `r41` | `integral2_curve_actual` | Kurva 2 aktuell | °C | 0…200 | input_number | 2.0 |
 | `d66` | `r42` | `outdoor_stop_t` | Utetemp. stopp ⚠️ 20 = −20 °C | °C | 0…100 | input_number | 20.0 |
 | `d67` | `r43` | `pressure_pipe_limit_t` | Hetgasrör tempgräns | °C | 0…200 | input_number | 135.0 |
-| `d68` | `r44` | `hotwater_start_t` | Varmvatten starttemp. | °C | 0…100 | input_number | 48.0 |
+| `d68` | `r44` | `hotwater_start_t` | Varmvatten starttemp. 🅿️ | °C | 0…100 | input_number | 46.0 |
 | `d69` | `r45` | `hotwater_runtime_m` | Varmvattencykel | min | 0…32767 | input_number | 20.0 |
 | `d70` | `r46` | `heatpump_runtime_m` | Värmecykel | min | 0…32767 | input_number | 20.0 |
-| `d71` | `r47` | `legionella_interval_d` | Legionella intervall | days | 0…32767 | input_number | 7.0 |
-| `d72` | `r48` | `legionella_stop_t` | Legionella stopptemp. | °C | 0…100 | input_number | 60.0 |
+| `d71` | `r47` | `legionella_interval_d` | Legionella intervall 🅿️ | days | 0…32767 | input_number | 7.0 |
+| `d72` | `r48` | `legionella_stop_t` | Legionella stopptemp. 🅿️ | °C | 0…100 | input_number | 65.0 |
 | `d73` | `r49` | `integral1_a_limit` | Integralgräns A1 | Cmin | -32768…32767 | input_number | 150.0 |
 | `d74` | `r4a` | `integral1_hysteresis_t` | Hysteres A1 | °C | 0…100 | input_number | 8.0 |
 | `d75` | `r4b` | `returnline_max_t` | Returledning maxgräns | °C | 0…100 | input_number | 60.0 |
@@ -134,7 +136,7 @@ Varje skrivbart register har **två** entiteter: den skrivbara `input_*` som vis
 | `d81` | `r51` | `elect_boiler_steps_max` | Max elsteg | steps | 0…3 | input_number | 2.0 |
 | `d82` | `r52` | `current_consumption_max_a` | Max ström | A | 0…100 | input_number | 20.0 |
 | `d83` | `r53` | `shunt_time_s` | Shunttid | s | 0…32767 | input_number | 60.0 |
-| `d84` | `r54` | `hotwater_stop_t` | Varmvatten stopptemp. | °C | 0…100 | input_number | 60.0 |
+| `d84` | `r54` | `hotwater_stop_t` | Varmvatten stopptemp. 🅿️ | °C | 0…100 | input_number | 53.0 |
 | `d87` | `r57` | `language` | Language |  | 0…255 | input_number | 0.0 |
 | `d91` | `r5b` | `outdoor_sensor_offset_t` | Calibration outdoor sensor | °C | -5…5 | input_number | 0.0 |
 | `d92` | `r5c` | `supplyline_sensor_offset_t` | Calibration supplyline sensor | °C | -5…5 | input_number | 0.0 |
@@ -146,8 +148,8 @@ Varje skrivbart register har **två** entiteter: den skrivbara `input_*` som vis
 | `d99` | `r63` | `internal_logging_t` | Loggtid | min | 0…32767 | input_number | 1.0 |
 | `d100` | `r64` | `brine_runout_t` | Köldbärare eftergång | *10s | 0…32767 | input_number | 3.0 |
 | `d101` | `r65` | `brine_run_in_t` | Köldbärare föregång | *10s | 0…32767 | input_number | 3.0 |
-| `d102` | `r66` | `legionella_run_on` | Legionella spetsvärme på |  | 0…1 | input_number | 0.0 |
-| `d103` | `r67` | `legionella_run_length_h` | Legionella spetsvärme längd | h | 0…32767 | input_number | 0.0 |
+| `d102` | `r66` | `legionella_run_on` | Legionella spetsvärme på 🅿️ |  | 0…1 | input_number | 1.0 |
+| `d103` | `r67` | `legionella_run_length_h` | Legionella spetsvärme längd 🅿️ | h | 0…32767 | input_number | 1.0 |
 
 ### C. Drifttider och interna register (skrivskyddade)
 
@@ -314,20 +316,40 @@ payload: '{"REGFMT":1}'       # 1 = decimal dNNN, 0 = hex rXX
 |---|---|---|
 | Innetemperatur | `indoor_requested_t` | 21 °C |
 | Varmvatten start / stopp | `hotwater_start_t` / `hotwater_stop_t` | 48 / 60 °C |
-| Värmekurva (lutning) | `integral1_curve_slope` | 39 |
-| Parallellförskjutning | `integral1_curve_0` | 0 |
+| Värmekurva (nivå) | `integral1_curve_slope` | 39 |
+| Parallellförskjutning | `input_number.…indoor_requested_t` | 21 °C |
 | Värmestopp (utetemp.) | `heating_stop_t` | 16 °C |
 | Nattsänkning | `reduction_t` | 2 °C |
 | Läge | `input_select.…main_mode` | `1 - Auto` |
 
-**Kurvan i korthet:** *lutningen* bestämmer hur mycket varmare framledningen blir när det blir
-kallare ute. *Kurva 0* flyttar hela kurvan parallellt — grovreglaget för innetemperaturen.
-*+5 / −5* finjusterar vid +5 °C respektive −5 °C ute. *Värmestopp* är utetemperaturen där
-värmen stängs av helt.
+**Kurvan i korthet:** `integral1_curve_slope` sätter kurvans *nivå*.
+`integral1_curve_p5` / `_0` / `_n5` är **tre likvärdiga finjusteringspunkter** (±5 °C) vid
+utetemperatur +5 / 0 / −5 °C — `_0` är alltså **inte** en parallellförskjutning, vilket det här
+dokumentet tidigare påstod. Det finns **inget parallellförskjutningsregister**;
+**`indoor_requested_t` (d50) är det som flyttar hela kurvan** och därmed grovreglaget för
+innetemperaturen. `integral1_curve_min` / `_max` (10 / 65) klampar resultatet.
+*Värmestopp* är utetemperaturen där värmen stängs av helt.
 
-**Integral A1 (gradminuter)** är det som faktiskt startar kompressorn: underskott mot börvärdet
-integreras över tid, och vid `integral1_a_limit` (150) startar pumpen. Det är därför `integral1`
-är det mest informativa värdet när man undrar "varför går den inte igång".
+Uppmätt samband (nivå 39, börvärde 21, `room_factor` 2) — ca −1,1 K framledning per +1 K ute,
+och exakt 0 vid `heating_stop_t`:
+
+| Ute | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
+|---|---|---|---|---|---|---|---|---|
+| `supplyline_target_t` | 33 | 32 | 31 | 30 | 28 | 27 | 26 | 25 → **0** |
+
+Integrationen räknar **ingen** kurvmatematik alls — allt utom `r01 += r02/10` och
+`r03 += r04/10` sker i pumpens firmware.
+
+**Integral A1 (gradminuter)** är det som startar kompressorn, och registret ⚠️ **räknar nedåt
+mot negativa tal**: underskottet integreras och pumpen startar när
+`integral1 ≤ −integral1_a_limit` (alltså vid **−150**, inte +150). Vid stopp nollställs
+`integral1` och svänger sedan positivt. Kompressorn stoppar när
+`supplyline_t ≥ supplyline_target_t + integral1_hysteresis_t` (31 + 8 = 39; uppmätt avstängning
+vid 41–45). En automation som testar `integral1 > 150` löser **aldrig** ut.
+
+För att ändra takten: `integral1_a_limit` styr *väntetiden* mellan starter,
+`integral1_hysteresis_t` styr *körlängden*. Kortcykling måste åtgärdas genom att höja **båda** —
+höjer man bara `a_limit` blir pausen längre men körningarna är fortfarande två minuter.
 
 ---
 
@@ -343,7 +365,29 @@ integreras över tid, och vid `integral1_a_limit` (150) startar pumpen. Det är 
    `thermiq_mqtt.set_*` är fel.
 6. **Pumpen vinner alltid.** Inkommande MQTT skriver över UI-värdet inom ~30 s. Hoppar ett fält
    tillbaka har pumpen nekat värdet — det är inte ett HA-fel.
-7. **Länken är ryckig.** Bryggan har svag WiFi och kan tappa anslutningen i perioder utan att
+7. ⚠️ **Negativa värden maskas till unsigned 16-bit vid skrivning.** `send_mqtt_reg` gör
+   `value = int(value) & 0xFFFF`, så `−1` går ut på tråden som `65535`. Det drabbar **varje**
+   signerat register: `integral1_curve_p5/_0/_n5` (±5), alla sex `*_sensor_offset_t` (±5),
+   `brine_min_t` (−25…100) och `integral1_a_limit`. Om bryggan tolkar tillbaka till int16 går
+   inte att avgöra ur koden — **skriv −1 och se vad pumpen ekar på `/data`** innan du förlitar
+   dig på en negativ finjustering. Flyttal trunkeras också (`int(value)`).
+8. ⚠️ **`hotwater_stop_t` har ett golv, och ett nekat värde snappar till 60 °C.** Uppmätt
+   2026-08-17: **52 accepterades, 48 nekades** (golvet ligger alltså i 49–52). Det viktiga är
+   vad som händer vid ett nej: registret står **inte** kvar på sitt förra värde utan hamnar på
+   **60**. En misslyckad skrivning är därför sämre än ingen skrivning — den ändrar
+   inställningen till standardvärdet. Verifiera alltid efter skrivning, och räkna inte med att
+   ett avslag är ofarligt. Samma sak gäller sannolikt andra register med dolda gränser.
+9. ⚠️ **Skriv aldrig `main_mode` > 4 via rå MQTT.** `heatpump/__init__.py` slår upp
+   `id_names["mode<N>"]` och bara `mode0`–`mode4` finns. Ett högre värde ger `KeyError` inne i
+   `message_received`, som bara fångar `ValueError` — hanteraren avbryter före
+   `mqtt_counter`-ökningen och uppdateringseventet, så **alla** entiteter slutar uppdateras så
+   länge pumpen rapporterar det läget. `input_select` är säkert (skickar `int(option[0])`).
+10. ⚠️ **`/api/history/period/<start>` har ett standardfönster på ett dygn.** En naiv
+    14-dagarsfråga returnerar tyst bara första dygnet, vilket får resultaten att se
+    motsägelsefulla ut. Skicka alltid explicit `end_time` — eller läs
+    `/config/home-assistant_v2.db` direkt, vilket är enda vägen för längre analyser
+    (`purge_keep_days: 14`).
+11. **Länken är ryckig.** Bryggan har svag WiFi och kan tappa anslutningen i perioder utan att
    publicera. Vid tappad länk går sensorerna till `unknown` **och `input_select.main_mode` faller
    tillbaka till `0 - Off`** — det betyder *inte* att pumpen är avstängd. Kolla
    `sensor.…communication_status` (`Ok`) och `sensor.…time_str` (pumpens klocka) först.
@@ -505,7 +549,127 @@ stiger över säsongen = borrhålet räcker inte till.
 
 ---
 
-## 9. Snabbkommandon
+## 9. Profiler (Sommar / Vinter / Semester)
+
+`input_select.varmepump_profil` + tre skript i `/config/scripts.yaml`. Källkopia:
+[`home/thermiq/scripts-varmepump-profiler.yaml`](thermiq/scripts-varmepump-profiler.yaml) och
+[`automation-varmepump-profil.yaml`](thermiq/automation-varmepump-profil.yaml).
+Ladda om med `action: script.reload` + `action: automation.reload`.
+
+| Register | Sommar | Vinter | Semester |
+|---|---|---|---|
+| `hotwater_start_t` | 46 | 46 | 40 |
+| `hotwater_stop_t` | 53 | 53 | 52 |
+| `heating_stop_t` | **12** | 17 | 12 |
+| `legionella_run_on` | 1 | 1 | 1 |
+| `legionella_stop_t` | 65 | 65 | 65 |
+| `legionella_run_length_h` | 1 | 1 | 1 |
+| `legionella_interval_d` | 7 | 7 | 7 |
+| `main_mode` | `1 - Auto` | `1 - Auto` | `1 - Auto` |
+
+**En worker + tre tunna wrappers** — `script.varmepump_profil_worker` innehåller all logik,
+wrappern är bara värdena. Ny profil = ny wrapper, inte en kopia av logiken.
+
+Fyra saker workern gör som en naiv skrivning inte gör:
+
+1. **Gatar på MQTT-länken.** Vid avbrott tystnar skrivningar helt och `main_mode` läser
+   `0 - Off` utan att pumpen är av (fallgrop 11). Utan gate skulle profilen "lyckas" tyst.
+2. **Skriver varmvattenparet i rätt ordning.** Höjs bandet skrivs *stopp* först, sänks det
+   skrivs *start* först — annars passerar start tillfälligt det gamla stoppet och pumpen nekar.
+3. **Väntar 45 s före verifiering.** Pumpen ekar tillbaka och skriver över HA inom ~30 s, så en
+   direkt avläsning bevisar ingenting.
+4. **Verifierar mot båda hållen** — både `input_number` och pumpens egen `sensor`-tvilling — och
+   skickar Telegram som namnger registret, önskat värde och det värde pumpen faktiskt håller.
+
+Bara register som faktiskt skiljer sig skrivs: **alla skrivbara register är persistenta
+inställningar i pumpen**, så varje skrivning är en flashcykel. Det är också anledningen att
+prisstyrning ska använda `heatpump_evu_block` och inte hamra setpoints (avsnitt 10).
+
+Automationen `automation.varmepump_applicera_vald_profil` kör rätt skript när väljaren ändras,
+och återasserterar vid HA-omstart. Uppstartsvägen **väntar först in länken** (alla 102 sensorer
+läser `unknown` i ~30 s efter omstart) och kör sedan **tyst** — en lyckad återställning är ingen
+nyhet, men avvikelser larmar alltid.
+
+**Verifierat 2026-08-17.** Alla tre profilerna kördes och pumpen kvitterade varje register.
+Skrivordningen syntes på tråden: `{"d068": 40}` före `{"d084": 46}` vid sänkning, `{"d084": 53}`
+före `{"d068": 46}` vid höjning. Verifieringssteget fångade dessutom ett verkligt fel direkt —
+Semester var först satt till stopp 46, pumpen nekade och registret snappade till 60, vilket gav:
+
+```
+Värmepumpsprofil: Semester: pumpen nekade hotwater_stop_t (vill 46.0, reglage 60.0, pump 60.0)
+```
+
+Det var så golvet i fallgrop 8 hittades, och varför Semester nu sparar via lägre *start*temperatur
+(40) i stället för lägre stopptemperatur.
+
+### Varför värmestopp 12 och inte 16
+
+Den viktigaste ändringen, och inte den man förväntar sig. Med `heating_stop_t` = 16 begärde pumpen
+rumsvärme **varje augustinatt** (utetemp 9–15 °C), men kompressorn hann nästan aldrig starta:
+underskottet är så litet att `integral1` behöver 2–3 timmar för att falla från +30 till −150, vilket
+är längre än natten är under 16 °C. Resultatet blev att **cirkulationspumpen gick i timmar utan
+värmekälla** — 7,8 h över 13 dygn, i episoder på 168 och 178 minuter, med noll levererad värme.
+
+Uppmätt 17 aug (hela förloppet syns register för register):
+
+```
+01:58  ute 13 -> börvärde 28 -> supply_pump ON    integral1 = +29
+ ...   integral1 kryper ned ~1-2 Cmin/min
+04:38  integral1 = -144        <-- nådde aldrig -150
+04:46  ute 16  -> börvärde 0  -> supply_pump OFF
+       kompressorn startade aldrig
+```
+
+Vid 12 °C startar den begäran inte alls. Kompressorstatistik som jämförelse: 37 starter över
+13,2 dygn, varav **32 varmvatten (12,4 h)** och 5 rumsvärme (0,21 h).
+
+---
+
+## 10. Prisstyrning — design, inte byggd
+
+Målet: ladda tanken när elen är billig och låta den svalna när den är dyr. Bygg genom att spegla
+`nattladdning`-paret (planerare + exekverare) i `automations.yaml`, som redan är beprövat här.
+
+**Förutsättningen är mätt och den är god:** tanken svalnar bara **−0,74 °C/h**. Från 60 °C ned
+till 48 är ~16 h; med sommarprofilens tak på 53 och start 46 är det ~9,5 h. Det är gott och väl
+mer än en kvällstopp. ⚠️ Notera kopplingen: **att sänka tanktemperaturen krymper bufferten som
+prisstyrningen ska spendera.** Blockeringen måste därför begränsas av **mätt `boiler_t`-fall**,
+aldrig av en fast tid, och släppa tidigt om `boiler_t` närmar sig `hotwater_start_t`.
+
+**Priskälla:** kärnintegrationen `nordpool`, config entry `01KRY9DGJ57F9046Q7JBC9Y6CF`, område SE3.
+Använd **`nordpool.get_price_indices_for_date` med `resolution: 60`** — `get_prices_for_date` (som
+`nattladdning` använder) har inget resolutionsfält och ger 15-minutersslots, 96 per dygn, vilket en
+värmepumpsoptimerare inte behöver. ⚠️ **Tjänstesvaret är i råa `SEK/MWh`; bara sensorerna är
+delade till `SEK/kWh`.** Båda returnerar `{"SE3":[{start,end,price},…]}`, och ett tomt API-svar är
+`{område: []}` — inte ett fel.
+
+**Planerare** (~22:00 + `homeassistant start`): hämta idag+imorgon, glidande fönster med minsta
+summa, skriv blocket till `input_datetime.varmepump_billigt_{start,slut}` med `has_date: true` så
+att `state_attr(…,'timestamp')` blir absolut epoch. Sentinel `NONE` → logga och stoppa.
+
+**Exekverare** (`mode: restart`): `time`-triggers som pekar på de två `input_datetime`-entiteterna
+— de omarmerar sig själva när planeraren skriver om dem, och det är hela kopplingen — plus en
+`/15`-`time_pattern` som **rekoncilierar**, så en missad trigger eller en omstart självläker.
+
+**Spakar, i prioritetsordning:**
+
+1. **Dyrt block → `input_boolean.thermiq_mqtt_vp1_heatpump_evu_block` PÅ** (`{"EVU":1}` på `/set`).
+   Den enda spaken som är byggd för just det här, och den enda som **inte** är en flashskrivning.
+   ⚠️ Om EVU även blockerar elpatronen går inte att avgöra ur koden — verifiera innan du litar på
+   den en kall dag.
+2. **Billigt block → höj `hotwater_stop_t`** för att förladda tanken, återställ efter. Sparsamt:
+   varje ändring är en flashcykel, och ett värde under golvet snappar registret till 60 (fallgrop 8).
+3. Bara vinter: **`indoor_requested_t` (d50)** ±1–2 K för att förladda husets massa — det är den
+   verkliga parallellförskjutningen, **inte** `integral1_curve_0`.
+
+**Två sovande resurser att utvärdera först:** `aio_energy_management` 1.1.0 ligger installerad i
+`/config/custom_components/aio_energy_management/` med en färdig `cheapest_hours`-motor och **noll
+config entries** — inläst och oanvänd. Och nordpools `off_peak_1 / peak / off_peak_2`-sensorer finns
+redan och används inte av någonting.
+
+---
+
+## 11. Snabbkommandon
 
 ```bash
 # Lyssna på pumpen live (ej retained — vänta ~30 s)
@@ -545,6 +709,6 @@ home/thermiq/reapply-patch.sh
   är den auktoritativa registerkartan, `heatpump/__init__.py` innehåller parsning och skrivning.
 - [github.com/ThermIQ/thermiq_mqtt-ha](https://github.com/ThermIQ/thermiq_mqtt-ha)
 - Relaterat i repot: **[`home/thermiq/`](thermiq/README.md) (återställningssats — patchad fil,
-  diff, `templates.yaml`, automation, `reapply-patch.sh`)**, `home/mqqt.yaml` (broker +
+  diff, `templates.yaml`, profilskript, automationer, `reapply-patch.sh`)**, `home/mqqt.yaml` (broker +
   `thermia`-användaren), `home/ha.yaml` (HA), `home/influxdb.yaml` + `home/grafana.yaml`
   (långtidslagring), `.claude/commands/v2-home.md` (HA-styrning generellt).

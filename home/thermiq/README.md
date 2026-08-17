@@ -16,6 +16,8 @@ The register map, control paths and traps are documented in
 | `reapply-patch.sh` | Idempotent re-apply: backs up, copies, validates config, restarts HA via its API, waits for all 48 controls. |
 | `templates.yaml` | The Δ-T + patch-guard template sensors. Lives at `/config/templates.yaml`, included from `configuration.yaml` as `template: !include templates.yaml`. |
 | `automation-varmepump-styrning-borta.yaml` | The guard automation. Appended to `/config/automations.yaml`. |
+| `scripts-varmepump-profiler.yaml` | The Sommar/Vinter/Semester profile scripts — **the whole of** `/config/scripts.yaml`, which was empty before this. |
+| `automation-varmepump-profil.yaml` | Applies the selected profile on change and re-asserts on HA start. Appended to `/config/automations.yaml`. |
 
 ## The bug
 
@@ -76,7 +78,21 @@ kubectl cp automation-varmepump-styrning-borta.yaml "home/$POD:/tmp/a.yaml"
 kubectl exec -n home "$POD" -- sh -c \
   'grep -q varmepump_styrning_borta /config/automations.yaml \
    || cat /tmp/a.yaml >> /config/automations.yaml'
+
+# profile scripts (this IS the whole of scripts.yaml) + its automation
+kubectl cp scripts-varmepump-profiler.yaml "home/$POD:/config/scripts.yaml"
+kubectl cp automation-varmepump-profil.yaml "home/$POD:/tmp/p.yaml"
+kubectl exec -n home "$POD" -- sh -c \
+  'grep -q varmepump_profil_applicera /config/automations.yaml \
+   || cat /tmp/p.yaml >> /config/automations.yaml'
 ```
+
+The profile **selector is a UI helper**, so it is not in any YAML file and must be recreated via
+the WebSocket API — `input_select/create` with name `Värmepump profil` and options
+`Sommar` / `Vinter` / `Semester`. `configuration.yaml` defines no helpers at all in this setup.
+
+Then `script.reload` + `automation.reload`, and pick a profile to push the registers back into the
+pump. The scripts are idempotent and write only what differs, so re-running is free.
 
 `template:` is a **new domain** the first time it is added — `homeassistant.reload_all`
 will not pick it up, it needs a real restart. Once loaded, `template.reload` is
@@ -131,7 +147,37 @@ statistics would corrupt min/max/mean permanently, and gaps are honest.
 **On the brine direction.** The integration's own calibration registers are
 cross-labelled in its source (`brine_in_sensor_offset_t` is described as
 "Calibration brine out sensor" and vice versa), which invites the conclusion that
-`brine_in`/`brine_out` are swapped. They are **not**. Checked against three real
-compressor runs on 2026-08-14 via recorder history: `brine_in_t` is the warmer
-side in all three (+2.5 / +2.2 / +2.0 K), i.e. genuinely the fluid arriving from
-the borehole. Do not "fix" the sign from an idle reading.
+`brine_in`/`brine_out` are swapped. They are **not**. Checked against **all 36
+compressor runs** in the recorder database: `brine_in_t` is the warmer side in
+**36 of 36** (median +2.50 K, range +1.5…+3.0), i.e. genuinely the fluid arriving
+from the borehole. Do not "fix" the sign from an idle reading — with the brine
+pump off the two sensors drift apart and can read the other way round.
+
+## Profiles
+
+`input_select.varmepump_profil` → `script.varmepump_profil_{sommar,vinter,semester}`, each a thin
+wrapper over `script.varmepump_profil_worker`. Full write-up in [`../THERMIQ.md`](../THERMIQ.md)
+§9; the values live in the wrappers.
+
+| Register | Sommar | Vinter | Semester |
+|---|---|---|---|
+| `hotwater_start_t` | 46 | 46 | 40 |
+| `hotwater_stop_t` | 53 | 53 | 52 |
+| `heating_stop_t` | **12** | 17 | 12 |
+| `legionella_run_on` / `_stop_t` / `_run_length_h` / `_interval_d` | 1 / 65 / 1 / 7 | same | same |
+
+Two traps the worker exists to handle, both found by breaking them:
+
+- ⚠️ **`hotwater_stop_t` has a floor around 49 °C, and a rejected write snaps the register to
+  60 °C** rather than leaving it alone. Measured 2026-08-17: 52 accepted, 48 rejected → 60. A
+  failed write is therefore *worse* than no write. That is why Semester saves via a lower **start**
+  temperature instead, and why every write is verified.
+- The hot-water pair must be written in the right order or start momentarily exceeds stop and the
+  pump refuses: **stop first when raising the band, start first when lowering.**
+
+Verified end to end on 2026-08-17 — all three profiles applied, every register acknowledged by the
+pump, and the verify step caught the rejected 46 °C on its own:
+
+```
+Värmepumpsprofil: Semester: pumpen nekade hotwater_stop_t (vill 46.0, reglage 60.0, pump 60.0)
+```

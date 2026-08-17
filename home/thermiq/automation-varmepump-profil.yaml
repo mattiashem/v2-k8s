@@ -1,0 +1,54 @@
+- id: varmepump_profil_applicera
+  alias: Värmepump - applicera vald profil
+  description: 'Kör rätt profilskript när input_select.varmepump_profil ändras, och återasserterar
+    profilen efter en HA-omstart. Registren sitter i pumpen och överlever en omstart, men
+    om något ändrats för hand vill vi tillbaka till den valda profilen. Uppstartsvägen väntar
+    först in MQTT-länken - direkt efter omstart läser alla 102 thermiq-sensorer unknown i
+    ~30 s, och skriptets länkgate skulle då larma i onödan - och kör sedan tyst (quiet=true),
+    så en lyckad återställning inte spammar Telegram. Avvikelser larmar alltid. Skripten är
+    idempotenta och skriver bara det som skiljer sig. Se home/THERMIQ.md avsnitt 9. 2026-08-17'
+  triggers:
+  - trigger: state
+    entity_id: input_select.varmepump_profil
+    id: vald
+  - trigger: homeassistant
+    event: start
+    id: uppstart
+  conditions: []
+  actions:
+  - if:
+    - condition: trigger
+      id: uppstart
+    then:
+    - wait_template: '{{ is_state(''sensor.thermiq_mqtt_vp1_communication_status'', ''Ok'') }}'
+      timeout:
+        minutes: 5
+      continue_on_timeout: false
+  - variables:
+      tyst: '{{ trigger.id == ''uppstart'' }}'
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_select.varmepump_profil
+        state: Sommar
+      sequence:
+      - action: script.varmepump_profil_sommar
+        data:
+          quiet: '{{ tyst }}'
+    - conditions:
+      - condition: state
+        entity_id: input_select.varmepump_profil
+        state: Vinter
+      sequence:
+      - action: script.varmepump_profil_vinter
+        data:
+          quiet: '{{ tyst }}'
+    - conditions:
+      - condition: state
+        entity_id: input_select.varmepump_profil
+        state: Semester
+      sequence:
+      - action: script.varmepump_profil_semester
+        data:
+          quiet: '{{ tyst }}'
+  mode: single
