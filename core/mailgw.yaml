@@ -1,0 +1,103 @@
+# Elino mail suite on v2cluster, namespace `mailgw`.
+#
+# Manifests are not authored here. Each repo's "Deploy To Production" workflow
+# renders its own chart with chart/values-v2cluster.yaml and commits the result
+# to elino-apps/k8-cluster-elino under clusters/v2cluster/<service>/. These
+# Applications only point at those paths, so a merge to main is what moves the
+# cluster — see CLAUDE.md in the mail-system working root.
+#
+# clusters/v2cluster/ is deliberately a different path from manifest/. The
+# latter is the production render and is on its own release cadence; pointing
+# both at one path is how a dev cluster ends up running production values.
+#
+# The repository credential is NOT in this file. k8-cluster-elino is private
+# and this repo is public, so the deploy key lives only in the cluster as
+# secret `repo-k8-cluster-elino` in the argocd namespace:
+#
+#   kubectl create secret generic repo-k8-cluster-elino -n argocd \
+#     --from-literal=type=git \
+#     --from-literal=url=git@github.com:elino-apps/k8-cluster-elino.git \
+#     --from-file=sshPrivateKey=<key> \
+#     && kubectl label secret repo-k8-cluster-elino -n argocd \
+#          argocd.argoproj.io/secret-type=repository
+#
+# Secrets in the namespace are hand-managed and out of git. Every chart renders
+# no Secret when its secrets.* values are blank, and values-v2cluster.yaml
+# leaves them blank on purpose. edge-postfix-role, edge-postfix-db,
+# mail-client-secret and mail-store-owner already exist and must keep existing.
+#
+# No Application here prunes. The namespace holds two CNPG clusters and the
+# MinIO volume that is the archive's system of record; a bad render must be
+# able to be wrong without being destructive.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mailgw-edge-postfix
+  namespace: argocd
+  annotations:
+    # Edge first. postfix-client's internal Postfix reads the configuration
+    # database this chart creates, and its relayhost points at edge's service.
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: core
+  source:
+    repoURL: git@github.com:elino-apps/k8-cluster-elino.git
+    targetRevision: HEAD
+    path: clusters/v2cluster/edge-postfix
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mailgw
+  syncPolicy:
+    # Manual until the first sync has been diffed against the running install.
+    # These resources were installed by hand with Helm on 2026-08-01 and are
+    # carrying real state; adoption is a one-time thing to watch, not to
+    # automate. Turn on `automated: {}` once the diff is clean.
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mailgw-postfix-client
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: core
+  source:
+    repoURL: git@github.com:elino-apps/k8-cluster-elino.git
+    targetRevision: HEAD
+    path: clusters/v2cluster/postfix-client
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mailgw
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mailgw-mail-client
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: core
+  source:
+    repoURL: git@github.com:elino-apps/k8-cluster-elino.git
+    targetRevision: HEAD
+    path: clusters/v2cluster/mail-client
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mailgw
+  syncPolicy:
+    # Stays manual longer than the other two. The web client needs
+    # `mail-client-web-secret` (KEYCLOAK_CLIENT_SECRET, AUTH_SECRET) to exist
+    # in the namespace or its pods sit in CreateContainerConfigError, and it
+    # has no route: values-v2cluster.yaml keeps the Ingress off because the
+    # cluster's routing is not ours to change. Reach it with
+    #   kubectl -n mailgw port-forward svc/mail-client 3100:3000
+    syncOptions:
+      - CreateNamespace=true
