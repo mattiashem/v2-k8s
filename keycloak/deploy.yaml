@@ -1,0 +1,131 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: code
+  labels:
+    app: keycloak
+spec:
+  type: ClusterIP
+  selector:
+    app: keycloak
+  ports:
+    # Port 80 to match what the Bitnami chart exposed, so the existing Ingress
+    # in code/auth.yaml keeps resolving without a change.
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: http
+    - name: management
+      port: 9000
+      protocol: TCP
+      targetPort: management
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: code
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  strategy:
+    # Keycloak migrates the schema on startup — never run two versions at once.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # Stock upstream image: this cluster's Keycloak never had a custom
+          # theme, it ran whatever the Bitnami chart shipped. Ollebo's themed
+          # build lives in the Ollebo/manifests repo instead.
+          image: quay.io/keycloak/keycloak:26.7.2
+          imagePullPolicy: IfNotPresent
+          # Plain `start`, not `--optimized`: this is the unaugmented upstream
+          # image, so it runs the build step itself on first boot.
+          args: ["start"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: management
+              containerPort: 9000
+              protocol: TCP
+          env:
+            # CloudNativePG cluster `code`, database `ollebo`.
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL_HOST
+              value: code-rw
+            - name: KC_DB_URL_DATABASE
+              value: ollebo
+            - name: KC_DB_USERNAME
+              value: ollebo
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: code-app
+                  key: password
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_METRICS_ENABLED
+              value: "true"
+            # No fixed KC_HOSTNAME: the public host for this cluster is still in
+            # flux (code/auth.yaml has auth.socomp.se committed and auth.v2.local
+            # in the working tree). With strict off, Keycloak derives issuer and
+            # redirect URIs from the forwarded headers, so it serves whichever
+            # host the Ingress ends up using. Pin KC_HOSTNAME once that settles.
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: myadmin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: code-app
+                  key: password
+            - name: JAVA_OPTS_APPEND
+              value: "-XX:MaxRAMPercentage=70"
+          # Budget covers the build step plus the 22 -> 26 schema migration.
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: management
+            periodSeconds: 5
+            failureThreshold: 72
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: management
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: management
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 200m
+              memory: 768Mi
+            limits:
+              memory: 1536Mi
