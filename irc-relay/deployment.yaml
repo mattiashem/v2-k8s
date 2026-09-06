@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: irc-relay
+  namespace: irc-relay
+  labels:
+    app: irc-relay
+spec:
+  replicas: 1
+  # Two relay pods would mean two IRC connections: duplicate posts in the
+  # channel and an inbox split across pods. Never roll, always replace.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: irc-relay
+  template:
+    metadata:
+      labels:
+        app: irc-relay
+      annotations:
+        # The relay holds a live socket, so a ConfigMap change is only picked
+        # up by restarting the pod. Stamped by generate-configmap.sh.
+        checksum/relay: "86a48681bc8a0f07"
+    spec:
+      terminationGracePeriodSeconds: 20
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      containers:
+        - name: irc-relay
+          image: python:3.12-slim
+          command: ["python3", "/app/irc_relay.py"]
+          env:
+            - name: IRC_HOST
+              value: chat.robots.beer
+            - name: IRC_PORT
+              value: "6697"
+            # The ircd has no plaintext listener - :6667 is exposed by the
+            # Service but nothing is bound to it. TLS is not optional here.
+            - name: IRC_TLS
+              value: "true"
+            - name: IRC_CHANNELS
+              value: "#agents,#agents-work,#claude"
+            - name: DEFAULT_CHANNEL
+              value: "#agents"
+            - name: IRC_ACCOUNT
+              valueFrom:
+                secretKeyRef:
+                  name: irc-relay-secrets
+                  key: irc-account
+            - name: IRC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: irc-relay-secrets
+                  key: irc-password
+            - name: RELAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: irc-relay-secrets
+                  key: relay-token
+            - name: PORT
+              value: "8080"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            # Deliberately independent of the IRC link: if chat.robots.beer is
+            # down, taking this pod out of the Service would make every hook on
+            # the workstation hang instead of failing fast. IRC health is
+            # reported in the /healthz body.
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: app
+              mountPath: /app
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: app
+          configMap:
+            name: irc-relay-server
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,787 @@
+#!/usr/bin/env python3
+"""
+irc-relay - one IRC connection shared by many ephemeral agents.
+
+Claude Code sessions, ARC runner pods and KubeFoundry task pods cannot each hold
+an IRC socket open: they are short-lived, and they all egress from a single NAT
+address that the ircd rate-limits (16 concurrent / 32 per 10 min per /32). So
+they POST events here over HTTP and this process owns the one connection,
+attributing each message to its originating agent with RELAYMSG.
+
+The reverse direction matters just as much: a human types a reply in #agents
+minutes after an agent went away, so inbound messages addressed to an agent are
+parked in a per-agent inbox that the agent collects on its next poll.
+
+Stdlib only, on purpose - it ships as a ConfigMap into a stock python:3.12-slim
+and this repo has no image build pipeline. See README.md.
+"""
+
+import base64
+import hmac
+import json
+import os
+import re
+import socket
+import ssl
+import sys
+import threading
+import time
+from collections import deque
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse, parse_qs
+
+# --------------------------------------------------------------------------
+# Configuration
+# --------------------------------------------------------------------------
+
+def _flag(name, default):
+    return os.environ.get(name, str(default)).strip().lower() not in ("0", "false", "no", "")
+
+IRC_HOST     = os.environ.get("IRC_HOST", "chat.robots.beer")
+IRC_PORT     = int(os.environ.get("IRC_PORT", "6697"))
+IRC_TLS      = _flag("IRC_TLS", True)
+IRC_ACCOUNT  = os.environ.get("IRC_ACCOUNT", "agentrelay")
+IRC_PASSWORD = os.environ.get("IRC_PASSWORD", "")
+IRC_REALNAME = os.environ.get("IRC_REALNAME", "v2 agent relay")
+CHANNELS     = [c.strip() for c in os.environ.get(
+                    "IRC_CHANNELS", "#agents,#agents-work,#claude").split(",") if c.strip()]
+
+# Publishing is restricted to the channels we join. A leaked relay token must
+# not let anyone make the bot spam #home or #afterwork.
+DEFAULT_CHANNEL = os.environ.get("DEFAULT_CHANNEL", CHANNELS[0] if CHANNELS else "#agents")
+WORK_CHANNEL    = os.environ.get("WORK_CHANNEL", "#agents-work")
+
+RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
+HTTP_PORT   = int(os.environ.get("PORT", "8080"))
+
+# Ergo fakelag here is: 1s window, burst-limit 5, 2 messages per window. Stay
+# strictly underneath - exceeding it does not disconnect us, it silently adds
+# server-side lag, which is far more confusing to debug than being slow.
+BUCKET_CAPACITY = float(os.environ.get("BUCKET_CAPACITY", "4"))
+BUCKET_REFILL   = float(os.environ.get("BUCKET_REFILL", "1.5"))
+
+MAX_TEXT_BYTES     = int(os.environ.get("MAX_TEXT_BYTES", "400"))
+MAX_QUEUE_PER_AGENT = int(os.environ.get("MAX_QUEUE_PER_AGENT", "200"))
+MAX_INBOX_PER_AGENT = int(os.environ.get("MAX_INBOX_PER_AGENT", "50"))
+MAX_AGENTS          = int(os.environ.get("MAX_AGENTS", "500"))
+MAX_BODY_BYTES      = 16 * 1024
+
+PING_INTERVAL = 60.0
+PING_TIMEOUT  = 30.0
+READ_TIMEOUT  = 5.0
+
+HIGH_EVENTS = {"notify", "stop", "error", "question", "pr", "start", "session_start"}
+
+STARTED_AT = time.time()
+STOP = threading.Event()
+
+
+def log(*a):
+    print(time.strftime("%Y-%m-%dT%H:%M:%S"), *a, flush=True)
+
+
+def now_iso():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+# --------------------------------------------------------------------------
+# Agent identifiers
+# --------------------------------------------------------------------------
+# RELAYMSG requires the separator configured on the server ("/"), and the whole
+# thing must still be a legal nick within NICKLEN=32.
+
+_NICK_CHARS = r"A-Za-z0-9_\-\[\]{}\\^|."
+_AGENT_RE = re.compile(r"^[%s]+(/[%s]+)?$" % (_NICK_CHARS, _NICK_CHARS))
+
+
+def normalize_agent(raw, default_prefix="cc"):
+    """Coerce a caller-supplied agent id into something RELAYMSG will accept."""
+    if not isinstance(raw, str):
+        return None
+    s = re.sub(r"[^%s/]" % _NICK_CHARS, "-", raw.strip())
+    s = re.sub(r"-{2,}", "-", s).strip("-")
+    if not s:
+        return None
+    parts = [p for p in s.split("/") if p]
+    if not parts:
+        return None
+    if len(parts) == 1:
+        parts = [default_prefix, parts[0]]
+    prefix, rest = parts[0], "-".join(parts[1:])
+    # Budget: prefix + "/" + rest <= 32.
+    rest = rest[: max(1, 31 - len(prefix))]
+    agent = "%s/%s" % (prefix, rest)
+    return agent if _AGENT_RE.match(agent) and len(agent) <= 32 else None
+
+
+def truncate_utf8(text, max_bytes=MAX_TEXT_BYTES):
+    """Cut on a codepoint boundary. The server enforces UTF8ONLY - a split
+    codepoint gets the connection closed, not just a mangled line."""
+    text = re.sub(r"\s+", " ", text).strip()
+    raw = text.encode("utf-8")
+    if len(raw) <= max_bytes:
+        return text
+    return raw[: max_bytes - 3].decode("utf-8", errors="ignore") + "..."
+
+
+# --------------------------------------------------------------------------
+# Queues
+# --------------------------------------------------------------------------
+
+class Outbox:
+    """Two priority lanes, per-agent deques inside each, drained round-robin so
+    one chatty agent cannot consume the whole 1.5 msg/s budget."""
+
+    def __init__(self):
+        self.cv = threading.Condition()
+        self.lanes = [{}, {}]          # 0 = high, 1 = low
+        self.order = [[], []]          # round-robin cursors
+        self.suppressed = {}
+        self.sent = 0
+        self.dropped = 0
+
+    def put(self, agent, channel, text, high):
+        lane = 0 if high else 1
+        with self.cv:
+            q = self.lanes[lane].get(agent)
+            if q is None:
+                if sum(len(l) for l in self.lanes) >= MAX_AGENTS:
+                    self.dropped += 1
+                    return False, 0
+                q = deque()
+                self.lanes[lane][agent] = q
+                self.order[lane].append(agent)
+            if len(q) >= MAX_QUEUE_PER_AGENT:
+                q.popleft()
+                self.suppressed[agent] = self.suppressed.get(agent, 0) + 1
+                self.dropped += 1
+            q.append((channel, text))
+            self.cv.notify()
+            return True, len(q)
+
+    def get(self, timeout):
+        """Pop one (agent, channel, text) or None. High lane always wins."""
+        with self.cv:
+            deadline = time.time() + timeout
+            while True:
+                for lane in (0, 1):
+                    order = self.order[lane]
+                    for _ in range(len(order)):
+                        agent = order.pop(0)
+                        q = self.lanes[lane].get(agent)
+                        if not q:
+                            self.lanes[lane].pop(agent, None)
+                            continue
+                        channel, text = q.popleft()
+                        if q:
+                            order.append(agent)      # back of the rotation
+                        else:
+                            self.lanes[lane].pop(agent, None)
+                        if not q:
+                            # Only report the suppression once the agent's
+                            # backlog is actually drained, otherwise the count
+                            # is consumed by the first message and lost.
+                            n = self.suppressed.pop(agent, 0)
+                            if n:
+                                text = "%s (+%d events suppressed)" % (text, n)
+                        return agent, channel, text
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    return None
+                self.cv.wait(remaining)
+
+    def depth(self):
+        with self.cv:
+            return sum(len(q) for lane in self.lanes for q in lane.values())
+
+
+class Inbox:
+    """Messages from IRC parked for an agent until it next polls."""
+
+    def __init__(self):
+        self.cv = threading.Condition()
+        self.boxes = {}
+        self.seq = 0
+
+    def put(self, agent, msg):
+        with self.cv:
+            q = self.boxes.get(agent)
+            if q is None:
+                if len(self.boxes) >= MAX_AGENTS:
+                    return
+                q = deque(maxlen=MAX_INBOX_PER_AGENT)
+                self.boxes[agent] = q
+            self.seq += 1
+            msg["id"] = str(self.seq)
+            q.append(msg)
+            self.cv.notify_all()
+
+    def take(self, agent, wait, peek=False):
+        deadline = time.time() + wait
+        with self.cv:
+            while True:
+                q = self.boxes.get(agent)
+                if q:
+                    out = list(q)
+                    if not peek:
+                        q.clear()
+                    return out
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    return []
+                self.cv.wait(remaining)
+
+    def ensure(self, agent):
+        with self.cv:
+            if agent not in self.boxes and len(self.boxes) < MAX_AGENTS:
+                self.boxes[agent] = deque(maxlen=MAX_INBOX_PER_AGENT)
+
+    def depth(self):
+        with self.cv:
+            return sum(len(q) for q in self.boxes.values())
+
+
+OUTBOX = Outbox()
+INBOX = Inbox()
+
+
+# --------------------------------------------------------------------------
+# IRC protocol
+# --------------------------------------------------------------------------
+
+_TAG_UNESCAPE = {"\\:": ";", "\\s": " ", "\\\\": "\\", "\\r": "\r", "\\n": "\n"}
+
+
+def unescape_tag(v):
+    out, i = [], 0
+    while i < len(v):
+        if v[i] == "\\" and i + 1 < len(v):
+            out.append(_TAG_UNESCAPE.get(v[i:i + 2], v[i + 1]))
+            i += 2
+        else:
+            out.append(v[i])
+            i += 1
+    return "".join(out)
+
+
+def parse_line(line):
+    """-> (tags, prefix, command, params)"""
+    tags = {}
+    if line.startswith("@"):
+        tagpart, _, line = line[1:].partition(" ")
+        for item in tagpart.split(";"):
+            if item:
+                k, _, v = item.partition("=")
+                tags[k] = unescape_tag(v)
+    prefix = ""
+    if line.startswith(":"):
+        prefix, _, line = line[1:].partition(" ")
+    params = []
+    while line:
+        if line.startswith(":"):
+            params.append(line[1:])
+            break
+        part, sep, line = line.partition(" ")
+        if part:
+            params.append(part)
+        if not sep:
+            break
+    if not params:
+        return tags, prefix, "", []
+    return tags, prefix, params[0].upper(), params[1:]
+
+
+class TokenBucket:
+    def __init__(self, capacity, refill):
+        self.capacity = capacity
+        self.refill = refill
+        self.tokens = capacity
+        self.stamp = time.monotonic()
+        self.lock = threading.Lock()
+
+    def take(self):
+        """Block until a token is available."""
+        while not STOP.is_set():
+            with self.lock:
+                now = time.monotonic()
+                self.tokens = min(self.capacity,
+                                  self.tokens + (now - self.stamp) * self.refill)
+                self.stamp = now
+                if self.tokens >= 1.0:
+                    self.tokens -= 1.0
+                    return True
+                need = (1.0 - self.tokens) / self.refill
+            time.sleep(min(need, 1.0))
+        return False
+
+    def scale(self, factor):
+        with self.lock:
+            self.refill = max(0.2, min(BUCKET_REFILL, self.refill * factor))
+
+
+class IRCClient(threading.Thread):
+    daemon = True
+
+    def __init__(self):
+        super().__init__(name="irc")
+        self.sock = None
+        self.send_lock = threading.Lock()
+        self.ready = threading.Event()
+        self.bucket = TokenBucket(BUCKET_CAPACITY, BUCKET_REFILL)
+        self.chan_op = {}
+        # Anything with a server-time at or before this has already been seen.
+        # Initialising to process start makes Ergo's autoreplay-on-join (30
+        # lines) harmless: we never re-deliver an old command as a new one.
+        self.seen_until = {c: now_iso() for c in CHANNELS}
+        self.state = "starting"
+        self.last_error = None
+        self.reconnects = 0
+        self.nick = IRC_ACCOUNT
+        self._caps = set()
+        self._sasl_done = threading.Event()
+        self._pong = threading.Event()
+
+    # -- raw io ------------------------------------------------------------
+
+    def send_raw(self, line):
+        with self.send_lock:
+            sock = self.sock
+            if sock is None:
+                raise OSError("not connected")
+            sock.sendall((line + "\r\n").encode("utf-8", errors="replace"))
+
+    def _connect(self):
+        log("connecting to %s:%d tls=%s" % (IRC_HOST, IRC_PORT, IRC_TLS))
+        raw = socket.create_connection((IRC_HOST, IRC_PORT), timeout=20)
+        raw.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        if IRC_TLS:
+            ctx = ssl.create_default_context()   # verification on, deliberately
+            sock = ctx.wrap_socket(raw, server_hostname=IRC_HOST)
+        else:
+            sock = raw
+        sock.settimeout(READ_TIMEOUT)
+        self.sock = sock
+
+    def _register(self):
+        self.send_raw("CAP LS 302")
+        self.send_raw("NICK %s" % IRC_ACCOUNT)
+        self.send_raw("USER %s 0 * :%s" % (IRC_ACCOUNT[:20], IRC_REALNAME))
+
+    def _do_sasl(self):
+        payload = "\0".join([IRC_ACCOUNT, IRC_ACCOUNT, IRC_PASSWORD]).encode("utf-8")
+        self.send_raw("AUTHENTICATE " + base64.b64encode(payload).decode("ascii"))
+
+    # -- inbound -----------------------------------------------------------
+
+    def _handle(self, tags, prefix, cmd, params):
+        nick = prefix.split("!")[0] if prefix else ""
+
+        if cmd == "PING":
+            self.send_raw("PONG :%s" % (params[-1] if params else ""))
+            return
+        if cmd == "PONG":
+            self._pong.set()
+            return
+
+        if cmd == "CAP" and len(params) >= 3:
+            sub = params[1].upper()
+            if sub in ("LS", "NEW"):
+                offered = set(params[-1].split())
+                want = {"sasl", "message-tags", "server-time",
+                        "batch", "account-tag", "draft/chathistory"}
+                ask = sorted(offered & want)
+                if ask:
+                    self.send_raw("CAP REQ :%s" % " ".join(ask))
+                else:
+                    self.send_raw("CAP END")
+            elif sub == "ACK":
+                self._caps |= set(params[-1].split())
+                if "sasl" in self._caps and IRC_PASSWORD:
+                    self.send_raw("AUTHENTICATE PLAIN")
+                else:
+                    self.send_raw("CAP END")
+            elif sub == "NAK":
+                self.send_raw("CAP END")
+            return
+
+        if cmd == "AUTHENTICATE" and params and params[0] == "+":
+            self._do_sasl()
+            return
+
+        if cmd in ("903", "904", "905", "906", "907"):
+            if cmd == "903":
+                log("SASL authenticated as %s" % IRC_ACCOUNT)
+            else:
+                self.last_error = "SASL failed (%s)" % cmd
+                log("SASL FAILED (%s) - check the irc-password in irc-relay-secrets" % cmd)
+            self._sasl_done.set()
+            self.send_raw("CAP END")
+            return
+
+        if cmd == "001":
+            self.nick = params[0] if params else IRC_ACCOUNT
+            # +B marks us as a bot so other agents can refuse to answer us.
+            # This is the outermost guard against an agent-to-agent loop.
+            self.send_raw("MODE %s +B" % self.nick)
+            for ch in CHANNELS:
+                self.send_raw("JOIN %s" % ch)
+            self.state = "connected"
+            self.ready.set()
+            log("registered as %s, joining %s" % (self.nick, ",".join(CHANNELS)))
+            return
+
+        if cmd in ("433", "436"):   # nick in use / collision
+            self.last_error = "nick %s unavailable (%s)" % (IRC_ACCOUNT, cmd)
+            log(self.last_error + " - trying REGAIN")
+            try:
+                self.send_raw("NS REGAIN %s" % IRC_ACCOUNT)
+            except OSError:
+                pass
+            return
+
+        if cmd == "353" and len(params) >= 4:      # NAMES
+            chan = params[2]
+            for entry in params[3].split():
+                modes, name = "", entry
+                while name and name[0] in "~&@%+":
+                    modes += name[0]
+                    name = name[1:]
+                if name == self.nick:
+                    self._set_op(chan, any(m in "~&@" for m in modes))
+            return
+
+        if cmd == "MODE" and len(params) >= 3 and params[0].startswith("#"):
+            chan, modes, targets = params[0], params[1], params[2:]
+            adding, idx = True, 0
+            for ch in modes:
+                if ch == "+":
+                    adding = True
+                elif ch == "-":
+                    adding = False
+                elif ch in "qaohvbeIkflI":
+                    target = targets[idx] if idx < len(targets) else ""
+                    if ch in "qao" and target == self.nick:
+                        self._set_op(chan, adding)
+                    if ch in "qaohvbeIkl":
+                        idx += 1
+            return
+
+        if cmd == "PRIVMSG" and len(params) >= 2:
+            self._on_privmsg(tags, nick, params[0], params[1])
+            return
+
+    def _set_op(self, chan, is_op):
+        if self.chan_op.get(chan) != is_op:
+            self.chan_op[chan] = is_op
+            log("%s: op=%s (%s)" % (chan, is_op,
+                "RELAYMSG attribution" if is_op else "PRIVMSG prefix fallback"))
+
+    def _on_privmsg(self, tags, sender, target, text):
+        if not sender or sender == self.nick:
+            return
+
+        stamp = tags.get("time", "")
+        if target.startswith("#"):
+            # Ergo replays history on join and on CHATHISTORY. Both arrive as
+            # ordinary PRIVMSGs; only the server-time distinguishes them from
+            # live traffic, so anything at or before the high-water mark is a
+            # replay we have already accounted for.
+            if stamp and stamp <= self.seen_until.get(target, ""):
+                return
+            if stamp:
+                self.seen_until[target] = stamp
+
+        # "agent/id: text" or "agent/id, text" addresses one agent.
+        m = re.match(r"^\s*([%s]+/[%s]+)\s*[:,]\s*(.+)$" % (_NICK_CHARS, _NICK_CHARS),
+                     text)
+        if not m:
+            return
+        agent, body = m.group(1), m.group(2).strip()
+        if not body:
+            return
+        INBOX.put(agent, {
+            "ts": stamp or now_iso(),
+            "from": sender,
+            "account": tags.get("account", ""),
+            "channel": target if target.startswith("#") else "",
+            "text": body,
+        })
+        log("parked for %s from %s in %s" % (agent, sender, target))
+
+    # -- outbound ----------------------------------------------------------
+
+    def _sender(self):
+        pending = None
+        while not STOP.is_set():
+            if not self.ready.wait(1.0):
+                continue
+            item = pending or OUTBOX.get(1.0)
+            pending = None
+            if item is None:
+                continue
+            agent, channel, text = item
+            if not self.bucket.take():
+                break
+            try:
+                if self.chan_op.get(channel):
+                    self.send_raw("RELAYMSG %s %s :%s" % (channel, agent, text))
+                else:
+                    self.send_raw("PRIVMSG %s :<%s> %s" % (channel, agent, text))
+                OUTBOX.sent += 1
+            except OSError as e:
+                # Hold the message and let the reconnect deliver it.
+                pending = item
+                log("send failed (%s), holding message" % e)
+                self.ready.clear()
+                time.sleep(1.0)
+
+    def _keepalive(self):
+        while not STOP.is_set():
+            if not self.ready.wait(1.0):
+                continue
+            time.sleep(PING_INTERVAL)
+            if not self.ready.is_set():
+                continue
+            self._pong.clear()
+            t0 = time.monotonic()
+            try:
+                self.send_raw("PING :relay%d" % int(time.time()))
+            except OSError:
+                continue
+            if not self._pong.wait(PING_TIMEOUT):
+                log("no PONG within %ss - dropping connection" % PING_TIMEOUT)
+                self._teardown()
+                continue
+            rtt = time.monotonic() - t0
+            # A climbing round-trip means the server is lagging us; back off
+            # rather than pushing harder into fakelag.
+            self.bucket.scale(0.5 if rtt > 2.0 else 1.2)
+
+    def _teardown(self):
+        self.ready.clear()
+        self.state = "reconnecting"
+        with self.send_lock:
+            if self.sock is not None:
+                try:
+                    self.sock.close()
+                except OSError:
+                    pass
+                self.sock = None
+
+    def _session(self):
+        self._caps.clear()
+        self._sasl_done.clear()
+        self.chan_op.clear()
+        self._connect()
+        self._register()
+
+        buf = b""
+        while not STOP.is_set():
+            try:
+                chunk = self.sock.recv(65536)
+            except socket.timeout:
+                continue
+            except (ssl.SSLWantReadError, ssl.SSLWantWriteError):
+                continue
+            if not chunk:
+                raise OSError("connection closed by peer")
+            buf += chunk
+            while b"\r\n" in buf:
+                line, buf = buf.split(b"\r\n", 1)
+                if not line:
+                    continue
+                try:
+                    tags, prefix, cmd, params = parse_line(
+                        line.decode("utf-8", errors="replace"))
+                    if cmd:
+                        self._handle(tags, prefix, cmd, params)
+                except Exception as e:                     # never die on one line
+                    log("handler error: %r on %.120s" % (e, line))
+
+    def run(self):
+        threading.Thread(target=self._sender, name="sender", daemon=True).start()
+        threading.Thread(target=self._keepalive, name="keepalive", daemon=True).start()
+        backoff = 1.0
+        while not STOP.is_set():
+            try:
+                self._session()
+                backoff = 1.0
+            except Exception as e:
+                self.last_error = str(e)
+                log("irc session ended: %r" % e)
+            self._teardown()
+            if STOP.is_set():
+                break
+            self.reconnects += 1
+            # Jitter matters: the whole cluster shares one /32 against a
+            # 32-connections-per-10-minutes limit, so a tight reconnect loop
+            # would lock everything else out too.
+            delay = min(300.0, backoff) * (0.8 + 0.4 * (os.urandom(1)[0] / 255.0))
+            log("reconnecting in %.1fs" % delay)
+            STOP.wait(delay)
+            backoff = min(300.0, backoff * 2)
+
+    def quit(self):
+        try:
+            self.send_raw("QUIT :relay shutting down")
+            time.sleep(0.3)
+        except OSError:
+            pass
+        self._teardown()
+
+
+CLIENT = IRCClient()
+
+
+# --------------------------------------------------------------------------
+# HTTP API
+# --------------------------------------------------------------------------
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "irc-relay/1.0"
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, fmt, *args):
+        pass                                   # too chatty; we log what matters
+
+    # -- helpers -----------------------------------------------------------
+
+    def _json(self, code, obj):
+        body = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def _authed(self):
+        if not RELAY_TOKEN:
+            return True                        # unset token = auth disabled
+        header = self.headers.get("Authorization", "")
+        got = header[7:] if header.lower().startswith("bearer ") else ""
+        if hmac.compare_digest(got, RELAY_TOKEN):
+            return True
+        self._json(401, {"error": "unauthorized"})
+        return False
+
+    def _body(self):
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return None
+        if n <= 0 or n > MAX_BODY_BYTES:
+            return None
+        try:
+            return json.loads(self.rfile.read(n).decode("utf-8"))
+        except Exception:
+            return None
+
+    # -- routes ------------------------------------------------------------
+
+    def do_GET(self):
+        route = urlparse(self.path)
+        q = parse_qs(route.query)
+
+        if route.path == "/healthz":
+            return self._json(200, self._health())
+        if not self._authed():
+            return
+        if route.path == "/v1/commands":
+            agent = normalize_agent((q.get("agent") or [""])[0])
+            if not agent:
+                return self._json(400, {"error": "agent required"})
+            try:
+                wait = max(0.0, min(55.0, float((q.get("wait") or ["0"])[0])))
+            except ValueError:
+                wait = 0.0
+            peek = (q.get("peek") or ["0"])[0] not in ("0", "", "false")
+            INBOX.ensure(agent)
+            msgs = INBOX.take(agent, wait, peek)
+            return self._json(200, {"agent": agent, "messages": msgs})
+        if route.path == "/v1/agents":
+            with INBOX.cv:
+                boxes = {a: len(qq) for a, qq in INBOX.boxes.items()}
+            return self._json(200, {"agents": boxes, "outbox": OUTBOX.depth()})
+        return self._json(404, {"error": "not found"})
+
+    def do_POST(self):
+        route = urlparse(self.path)
+        if not self._authed():
+            return
+        if route.path != "/v1/publish":
+            return self._json(404, {"error": "not found"})
+
+        data = self._body()
+        if not isinstance(data, dict):
+            return self._json(400, {"error": "bad json"})
+
+        agent = normalize_agent(data.get("agent"))
+        if not agent:
+            return self._json(400, {"error": "invalid agent"})
+        text = data.get("text")
+        if not isinstance(text, str) or not text.strip():
+            return self._json(400, {"error": "text required"})
+
+        channel = data.get("channel") or DEFAULT_CHANNEL
+        if channel not in CHANNELS:
+            return self._json(400, {"error": "channel not allowed",
+                                    "allowed": CHANNELS})
+
+        event = str(data.get("event") or "log").lower()
+        text = truncate_utf8(text)
+        ok, depth = OUTBOX.put(agent, channel, text, event in HIGH_EVENTS)
+        # Deliberately 202 either way: a Claude Code hook is synchronous and
+        # must never see a failure it might retry or report to the user.
+        return self._json(202, {"queued": ok, "agent": agent,
+                                "channel": channel, "depth": depth})
+
+    def _health(self):
+        return {
+            "status": "ok",
+            "irc": CLIENT.state,
+            "nick": CLIENT.nick,
+            "channels": {c: {"op": bool(CLIENT.chan_op.get(c))} for c in CHANNELS},
+            "outbox": OUTBOX.depth(),
+            "inbox": INBOX.depth(),
+            "sent": OUTBOX.sent,
+            "dropped": OUTBOX.dropped,
+            "reconnects": CLIENT.reconnects,
+            "last_error": CLIENT.last_error,
+            "uptime_s": int(time.time() - STARTED_AT),
+        }
+
+
+def main():
+    if not IRC_PASSWORD:
+        log("WARNING: IRC_PASSWORD empty - SASL will be skipped and the nick "
+            "will not be owned (nick-reservation is strict on this server)")
+    if not RELAY_TOKEN:
+        log("WARNING: RELAY_TOKEN empty - the HTTP API is UNAUTHENTICATED")
+
+    CLIENT.start()
+    httpd = ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler)
+    httpd.daemon_threads = True
+    log("http listening on :%d, publishing to %s" % (HTTP_PORT, ",".join(CHANNELS)))
+
+    import signal
+
+    def shutdown(signum, frame):
+        log("signal %d - shutting down" % signum)
+        STOP.set()
+        CLIENT.quit()
+        threading.Thread(target=httpd.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+    try:
+        httpd.serve_forever()
+    finally:
+        STOP.set()
+
+
+if __name__ == "__main__":
+    main()
