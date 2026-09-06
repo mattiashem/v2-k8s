@@ -30,7 +30,8 @@ Each skill is offered three ways, because MCP clients differ in what they suppor
 
 **Zero dependencies.** The server is stdlib-only Python, so it runs on a stock `python:3.12-slim`
 image — no image to build, no registry to publish to, and nothing fetched from PyPI at startup.
-The whole server is a ConfigMap.
+The source of truth is `skills_mcp.py`; `configmap-server.yaml` is generated from it, so edit the
+`.py` and rerun the generator — never hand-edit the ConfigMap.
 
 **Skills are re-read on every request**, so updated content is picked up without a restart.
 
@@ -38,12 +39,12 @@ The whole server is a ConfigMap.
 `configmap-skills.yaml` is generated from it:
 
 ```bash
-./generate-skills-configmap.sh [path-to-agent-skills-repo]
+./generate-configmaps.sh [path-to-agent-skills-repo]
 ```
 
-That script also stamps a content hash onto the Deployment's `checksum/skills` annotation, so a
-skill change actually rolls the pod rather than waiting on kubelet's ConfigMap sync period.
-Rerun it and commit after every skill change.
+That script also stamps a hash of **both** ConfigMaps onto the Deployment's `checksum/skills`
+annotation, so a skill change *or* a server code change actually rolls the pod rather than waiting
+on kubelet's ConfigMap sync period. Rerun it and commit after every change.
 
 **Upgrading to live sync** is a small change once a read-only token exists: add a git-sync sidecar
 writing into `/skills`, then delete `configmap-skills.yaml`, its volume, and the `expand-skills`
@@ -53,8 +54,10 @@ initContainer. The server needs no modification — it just reads whatever is in
 
 ```
 namespace.yaml            the skills namespace
-configmap-server.yaml     the MCP server itself
-configmap-skills.yaml     GENERATED — skill content
+skills_mcp.py             the MCP server — SOURCE OF TRUTH, edit this
+generate-configmaps.sh    regenerates both ConfigMaps + stamps the rollout checksum
+configmap-server.yaml     GENERATED from skills_mcp.py
+configmap-skills.yaml     GENERATED from the agent-skills registry
 deployment.yaml           initContainer expands <slug>__SKILL.md into <slug>/SKILL.md
 service.yaml              ClusterIP + traefik ingress
 ```

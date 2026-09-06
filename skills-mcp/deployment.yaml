@@ -17,7 +17,7 @@ spec:
       annotations:
         # Roll the pod whenever the served content changes, so a ConfigMap
         # update does not sit unnoticed behind kubelet's sync period.
-        checksum/skills: "abd9ab341d466fb4"
+        checksum/skills: "6087d451f0094e4f"
     spec:
       securityContext:
         runAsNonRoot: true
