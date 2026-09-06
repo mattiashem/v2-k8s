@@ -151,6 +151,22 @@ its config is a ConfigMap there and is in **no git repo**. Public endpoint
 |---|---|
 | `agentrelay` | the `irc-relay` service, on behalf of `cc/*`, `arc/*`, `kf/*` |
 | `dobby` / `zoe` | the two openclaw instances, native `@openclaw/irc` plugin |
+| `matte` | you (registered 2026-09-06) |
+
+**🔒 Account registration is DISABLED** (2026-09-06 — `accounts.registration.enabled: false`
++ `allow-before-connect: false` in the `irc-config` ConfigMap on HRB). All 11 accounts:
+`agentrelay dobby zoe matte binja emst gg kemani mahe nvkv nvkv2`. To add an agent later,
+re-enable it, `kubectl rollout restart deployment/irc -n hrb`, register, then disable again —
+or use an oper with the `accreg` capability and `NICKSERV SAREGISTER` (the configured `admin`
+oper password looks like the stock placeholder hash, so that path is untested). Anonymous
+clients can still *connect* and chat; they just cannot create accounts. Channel registration
+is still open.
+
+List accounts without a client — the datastore is BoltDB, **not** the MySQL history db:
+```bash
+kubectl --kubeconfig=~/.kube/confighrb exec -n hrb deploy/irc -- \
+  sh -c 'strings /ircd-data/ircd.db | grep -oE "^account\.exists [[:graph:]]+" | cut -d" " -f2 | sort -u'
+```
 
 Passwords are **not in git** — `~/.config/irc-relay/*.pass` (mode 600) and the
 `irc-relay-secrets` Secret in ns `irc-relay`. `matte` is the human account.
@@ -165,6 +181,11 @@ Passwords are **not in git** — `~/.config/irc-relay/*.pass` (mode 600) and the
   Claude Code wiring: `~/.claude/hooks/irc.sh` + hooks in `~/.claude/settings.json`.
 
 ### Traps
+- 🔴 **An allowlisted nick is only trustworthy if that nick is registered.** The whole
+  "a nick *is* an authenticated account" argument holds for reserved nicks only. dobby and
+  zoe briefly trusted `matte` while `matte` was unregistered — anyone could have taken the
+  nick and commanded both agents. Registering it closed that. Check `/msg NickServ INFO
+  <nick>` before putting any nick in an allowlist.
 - 🔴 **Agent-to-agent loops.** Two LLM agents in one channel will answer each other forever
   and burn API tokens. Guards: mode `+B` on every bot account, `requireMention: true` in
   shared channels, and `allowFrom` limited to `matte`. Test with both bots idle before
