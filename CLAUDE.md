@@ -151,7 +151,8 @@ its config is a ConfigMap there and is in **no git repo**. Public endpoint
 |---|---|
 | `agentrelay` | the `irc-relay` service, on behalf of `cc/*`, `arc/*`, `kf/*` |
 | `dobby` / `zoe` | the two openclaw instances, native `@openclaw/irc` plugin |
-| `matte` | you (registered 2026-09-06) |
+| `mahe` | **your admin account — the ONLY sender dobby and zoe accept commands from** |
+| `matte` | registered 2026-09-06, but NOT on any agent allowlist |
 
 **🔒 Account registration is DISABLED** (2026-09-06 — `accounts.registration.enabled: false`
 + `allow-before-connect: false` in the `irc-config` ConfigMap on HRB). All 11 accounts:
@@ -181,6 +182,17 @@ Passwords are **not in git** — `~/.config/irc-relay/*.pass` (mode 600) and the
   Claude Code wiring: `~/.claude/hooks/irc.sh` + hooks in `~/.claude/settings.json`.
 
 ### Traps
+- 🔴 **Changing an agent's IRC allowlist needs a full pod restart.**
+  `openclaw gateway call channels.stop` + `channels.start` reports success and reconnects,
+  but the old provider survives with its old config still handling messages — dobby kept
+  obeying a removed account through four stop/start cycles, and the ircd showed 7 sessions
+  for one account (`multiclient` permits them). Always
+  `kubectl rollout restart statefulset/<name>` and re-verify.
+- 🔴 **Verify an allowlist change with a replay-aware test.** Ergo's `autoreplay-on-join`
+  re-sends up to 30 past lines *with the original sender's prefix*, so a stale reply from
+  the agent looks exactly like a live one. Join, drain for ~8s, then send a unique nonce and
+  only count what arrives after it. Confirm against the agent's own log, which prints
+  `[irc] drop group sender <nick>!… (policy=allowlist)` for a rejected sender.
 - 🔴 **An allowlisted nick is only trustworthy if that nick is registered.** The whole
   "a nick *is* an authenticated account" argument holds for reserved nicks only. dobby and
   zoe briefly trusted `matte` while `matte` was unregistered — anyone could have taken the
@@ -188,7 +200,7 @@ Passwords are **not in git** — `~/.config/irc-relay/*.pass` (mode 600) and the
   <nick>` before putting any nick in an allowlist.
 - 🔴 **Agent-to-agent loops.** Two LLM agents in one channel will answer each other forever
   and burn API tokens. Guards: mode `+B` on every bot account, `requireMention: true` in
-  shared channels, and `allowFrom` limited to `matte`. Test with both bots idle before
+  shared channels, and `allowFrom`/`groupAllowFrom` limited to `mahe`. Test with both bots idle before
   enabling anything chatty.
 - 🔴 **~2 msg/s, server-wide per connection** (`fakelag`: burst 5, 2 per 1s window). This is
   the hard ceiling. **Do not narrate tool use** — publish session start, permission-needed,
