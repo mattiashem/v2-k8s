@@ -70,6 +70,7 @@ MAX_BODY_BYTES      = 16 * 1024
 # A registration that never completes must not hang the relay forever: the
 # keepalive only runs once we are ready, so nothing else would notice.
 REGISTER_TIMEOUT = float(os.environ.get("REGISTER_TIMEOUT", "45"))
+IRC_DEBUG = _flag("IRC_DEBUG", False)   # log raw protocol lines
 PING_INTERVAL = 60.0
 PING_TIMEOUT  = 30.0
 READ_TIMEOUT  = 5.0
@@ -346,10 +347,17 @@ class IRCClient(threading.Thread):
         self._pong = threading.Event()
         self._register_deadline = None
         self._nick_retry_at = None
+        self._offered = set()
+        self._pending_caps = set()
 
     # -- raw io ------------------------------------------------------------
 
     def send_raw(self, line):
+        if IRC_DEBUG:
+            safe = line
+            if line.startswith("AUTHENTICATE ") and len(line) > 13:
+                safe = "AUTHENTICATE <credentials redacted>"
+            log(">>", safe)
         with self.send_lock:
             sock = self.sock
             if sock is None:
@@ -392,22 +400,34 @@ class IRCClient(threading.Thread):
         if cmd == "CAP" and len(params) >= 3:
             sub = params[1].upper()
             if sub in ("LS", "NEW"):
-                offered = set(params[-1].split())
+                # With CAP 302 a capability can carry a value, e.g.
+                # "sasl=PLAIN,EXTERNAL,SCRAM-SHA-256". Match on the name only -
+                # comparing whole tokens silently misses sasl, and since the
+                # nick is reserved the symptom is a bare 433 with no clue why.
+                self._offered |= {c.split("=", 1)[0] for c in params[-1].split()}
+                # "CAP * LS * :..." means another LS line follows. Acting on the
+                # first one sends CAP END while a REQ is still outstanding.
+                if len(params) >= 4 and params[2] == "*":
+                    return
                 want = {"sasl", "message-tags", "server-time",
                         "batch", "account-tag", "draft/chathistory"}
-                ask = sorted(offered & want)
+                ask = sorted(self._offered & want)
                 if ask:
+                    self._pending_caps = set(ask)
                     self.send_raw("CAP REQ :%s" % " ".join(ask))
                 else:
                     self.send_raw("CAP END")
-            elif sub == "ACK":
-                self._caps |= set(params[-1].split())
-                if "sasl" in self._caps and IRC_PASSWORD:
-                    self.send_raw("AUTHENTICATE PLAIN")
-                else:
-                    self.send_raw("CAP END")
-            elif sub == "NAK":
-                self.send_raw("CAP END")
+            elif sub in ("ACK", "NAK"):
+                named = {c.split("=", 1)[0] for c in params[-1].split()}
+                if sub == "ACK":
+                    self._caps |= named
+                self._pending_caps -= named
+                if not self._pending_caps:
+                    # Only now is the negotiation actually finished.
+                    if "sasl" in self._caps and IRC_PASSWORD:
+                        self.send_raw("AUTHENTICATE PLAIN")
+                    else:
+                        self.send_raw("CAP END")
             return
 
         if cmd == "AUTHENTICATE" and params and params[0] == "+":
@@ -440,7 +460,10 @@ class IRCClient(threading.Thread):
 
         if cmd in ("433", "436"):   # nick in use / collision
             self.last_error = "nick %s unavailable (%s)" % (IRC_ACCOUNT, cmd)
-            log(self.last_error + " - trying REGAIN")
+            hint = ("" if "sasl" in self._caps and self._sasl_done.is_set()
+                    else " - NOT logged in; with strict nick-reservation this "
+                         "usually means SASL did not run, not a ghost session")
+            log(self.last_error + hint + " - trying REGAIN")
             try:
                 self.send_raw("NS REGAIN %s" % IRC_ACCOUNT)
                 # REGAIN needs a moment to kill the ghost session; retrying the
@@ -581,6 +604,8 @@ class IRCClient(threading.Thread):
 
     def _session(self):
         self._caps.clear()
+        self._offered.clear()
+        self._pending_caps.clear()
         self._sasl_done.clear()
         self.chan_op.clear()
         self._connect()
@@ -611,8 +636,10 @@ class IRCClient(threading.Thread):
                 if not line:
                     continue
                 try:
-                    tags, prefix, cmd, params = parse_line(
-                        line.decode("utf-8", errors="replace"))
+                    decoded = line.decode("utf-8", errors="replace")
+                    if IRC_DEBUG:
+                        log("<<", decoded)
+                    tags, prefix, cmd, params = parse_line(decoded)
                     if cmd:
                         self._handle(tags, prefix, cmd, params)
                 except Exception as e:                     # never die on one line
