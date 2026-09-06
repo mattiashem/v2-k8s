@@ -21,7 +21,7 @@ spec:
       annotations:
         # The relay holds a live socket, so a ConfigMap change is only picked
         # up by restarting the pod. Stamped by generate-configmap.sh.
-        checksum/relay: "86a48681bc8a0f07"
+        checksum/relay: "92a12200b02a1ed2"
     spec:
       terminationGracePeriodSeconds: 20
       securityContext:

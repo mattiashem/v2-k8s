@@ -67,6 +67,9 @@ MAX_INBOX_PER_AGENT = int(os.environ.get("MAX_INBOX_PER_AGENT", "50"))
 MAX_AGENTS          = int(os.environ.get("MAX_AGENTS", "500"))
 MAX_BODY_BYTES      = 16 * 1024
 
+# A registration that never completes must not hang the relay forever: the
+# keepalive only runs once we are ready, so nothing else would notice.
+REGISTER_TIMEOUT = float(os.environ.get("REGISTER_TIMEOUT", "45"))
 PING_INTERVAL = 60.0
 PING_TIMEOUT  = 30.0
 READ_TIMEOUT  = 5.0
@@ -341,6 +344,8 @@ class IRCClient(threading.Thread):
         self._caps = set()
         self._sasl_done = threading.Event()
         self._pong = threading.Event()
+        self._register_deadline = None
+        self._nick_retry_at = None
 
     # -- raw io ------------------------------------------------------------
 
@@ -427,6 +432,8 @@ class IRCClient(threading.Thread):
             for ch in CHANNELS:
                 self.send_raw("JOIN %s" % ch)
             self.state = "connected"
+            self._register_deadline = None
+            self._nick_retry_at = None
             self.ready.set()
             log("registered as %s, joining %s" % (self.nick, ",".join(CHANNELS)))
             return
@@ -436,6 +443,9 @@ class IRCClient(threading.Thread):
             log(self.last_error + " - trying REGAIN")
             try:
                 self.send_raw("NS REGAIN %s" % IRC_ACCOUNT)
+                # REGAIN needs a moment to kill the ghost session; retrying the
+                # NICK immediately just collides again.
+                self._nick_retry_at = time.monotonic() + 3.0
             except OSError:
                 pass
             return
@@ -575,9 +585,18 @@ class IRCClient(threading.Thread):
         self.chan_op.clear()
         self._connect()
         self._register()
+        self._register_deadline = time.monotonic() + REGISTER_TIMEOUT
 
         buf = b""
         while not STOP.is_set():
+            if not self.ready.is_set():
+                now = time.monotonic()
+                if self._nick_retry_at and now >= self._nick_retry_at:
+                    self._nick_retry_at = None
+                    self.send_raw("NICK %s" % IRC_ACCOUNT)
+                if self._register_deadline and now > self._register_deadline:
+                    raise OSError("registration did not complete within %.0fs"
+                                  % REGISTER_TIMEOUT)
             try:
                 chunk = self.sock.recv(65536)
             except socket.timeout:
