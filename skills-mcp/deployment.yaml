@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skills-mcp
+  namespace: skills
+  labels:
+    app: skills-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skills-mcp
+  template:
+    metadata:
+      labels:
+        app: skills-mcp
+      annotations:
+        # Roll the pod whenever the served content changes, so a ConfigMap
+        # update does not sit unnoticed behind kubelet's sync period.
+        checksum/skills: "abd9ab341d466fb4"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      initContainers:
+        # ConfigMap keys cannot contain "/", so the content is stored flat as
+        # <slug>__SKILL.md and expanded here into the <slug>/SKILL.md tree the
+        # Agent Skills format expects.
+        - name: expand-skills
+          image: python:3.12-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              for f in /content/*__SKILL.md; do
+                [ -e "$f" ] || continue
+                base=$(basename "$f")
+                slug=${base%%__SKILL.md}
+                mkdir -p "/skills/$slug"
+                cp "$f" "/skills/$slug/SKILL.md"
+                echo "expanded $slug"
+              done
+          volumeMounts:
+            - name: content
+              mountPath: /content
+              readOnly: true
+            - name: skills
+              mountPath: /skills
+      containers:
+        - name: skills-mcp
+          image: python:3.12-slim
+          command: ["python3", "/app/skills_mcp.py"]
+          env:
+            - name: SKILLS_DIR
+              value: /skills
+            - name: PORT
+              value: "8080"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: app
+              mountPath: /app
+              readOnly: true
+            - name: skills
+              mountPath: /skills
+              readOnly: true
+      volumes:
+        - name: app
+          configMap:
+            name: skills-mcp-server
+        - name: content
+          configMap:
+            name: skills-mcp-content
+        - name: skills
+          emptyDir: {}

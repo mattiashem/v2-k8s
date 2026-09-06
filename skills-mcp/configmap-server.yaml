@@ -1,0 +1,304 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skills-mcp-server
+  namespace: skills
+data:
+  skills_mcp.py: |
+    #!/usr/bin/env python3
+    """
+    skills-mcp — serve an Agent Skills tree over MCP (streamable HTTP).
+
+    Zero dependencies: stdlib only, so it runs on a stock python image with no
+    build step and no packages fetched at startup.
+
+    Skills are read from SKILLS_DIR (default /skills), laid out as
+    <SKILLS_DIR>/<slug>/SKILL.md with `name` + `description` YAML frontmatter.
+    The tree is re-read on every request, so a git-sync sidecar or a ConfigMap
+    update is picked up without a restart.
+
+    Exposes each skill three ways, because MCP clients vary in what they support:
+      tools     list_skills / get_skill   (most widely supported — the primary path)
+      resources skill://<slug>
+      prompts   <slug>
+    """
+
+    import json
+    import os
+    import re
+    import sys
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    SKILLS_DIR = os.environ.get("SKILLS_DIR", "/skills")
+    PORT = int(os.environ.get("PORT", "8080"))
+    PROTOCOL_VERSION = "2025-06-18"
+    SERVER_INFO = {"name": "skills-mcp", "version": "0.1.0"}
+
+    _FM = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.S)
+
+
+    def _parse_frontmatter(text):
+        """Pull name/description out of YAML frontmatter without a YAML parser.
+
+        Only flat `key: value` pairs matter here, but values are routinely wrapped
+        across lines by editors, so continuation lines are folded into the previous
+        key the way YAML would.
+        """
+        m = _FM.match(text)
+        if not m:
+            return {}, text
+        meta, key = {}, None
+        for line in m.group(1).split("\n"):
+            if not line.strip():
+                continue
+            if re.match(r"^\s", line) and key:
+                meta[key] += " " + line.strip()
+                continue
+            if ":" in line:
+                key, _, val = line.partition(":")
+                key = key.strip()
+                meta[key] = val.strip()
+        return meta, text[m.end():]
+
+
+    def load_skills():
+        """Return {slug: {name, description, body, path}} for the whole tree."""
+        skills = {}
+        if not os.path.isdir(SKILLS_DIR):
+            return skills
+        for slug in sorted(os.listdir(SKILLS_DIR)):
+            path = os.path.join(SKILLS_DIR, slug, "SKILL.md")
+            if not os.path.isfile(path):
+                continue
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    raw = fh.read()
+            except OSError as exc:
+                print(f"skills-mcp: cannot read {path}: {exc}", file=sys.stderr)
+                continue
+            meta, body = _parse_frontmatter(raw)
+            skills[slug] = {
+                "name": meta.get("name", slug),
+                "description": meta.get("description", ""),
+                "body": body,
+                "raw": raw,
+                "path": path,
+            }
+        return skills
+
+
+    # --- MCP method handlers -------------------------------------------------
+
+    def m_initialize(params):
+        # Echo the client's protocol version when we recognise it, so a client
+        # pinned to an older revision is not forced to downgrade the session.
+        requested = (params or {}).get("protocolVersion")
+        return {
+            "protocolVersion": requested if isinstance(requested, str) and requested else PROTOCOL_VERSION,
+            "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
+            "serverInfo": SERVER_INFO,
+        }
+
+
+    def m_tools_list(_params):
+        return {
+            "tools": [
+                {
+                    "name": "list_skills",
+                    "description": (
+                        "List every operational skill available in the shared registry, with the "
+                        "description that says when each one applies. Call this first to find out "
+                        "which skill fits the task."
+                    ),
+                    "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+                },
+                {
+                    "name": "get_skill",
+                    "description": (
+                        "Fetch the full text of one skill runbook by name, then follow its "
+                        "instructions. Use list_skills first if you do not know the exact name."
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Skill name, e.g. 'network-validate'"}
+                        },
+                        "required": ["name"],
+                        "additionalProperties": False,
+                    },
+                },
+            ]
+        }
+
+
+    def _text(s):
+        return {"content": [{"type": "text", "text": s}]}
+
+
+    def m_tools_call(params):
+        params = params or {}
+        tool = params.get("name")
+        args = params.get("arguments") or {}
+        skills = load_skills()
+
+        if tool == "list_skills":
+            if not skills:
+                return _text(f"No skills found in {SKILLS_DIR}.")
+            lines = [f"{len(skills)} skill(s) available:", ""]
+            for slug, s in skills.items():
+                lines.append(f"- {s['name']}: {s['description']}")
+            lines += ["", "Call get_skill with a name to read the full runbook."]
+            return _text("\n".join(lines))
+
+        if tool == "get_skill":
+            want = (args.get("name") or "").strip()
+            if not want:
+                return {**_text("get_skill requires a 'name' argument."), "isError": True}
+            hit = skills.get(want) or next(
+                (s for s in skills.values() if s["name"] == want), None
+            )
+            if not hit:
+                known = ", ".join(sorted(skills)) or "(none)"
+                return {**_text(f"No skill named '{want}'. Available: {known}"), "isError": True}
+            return _text(hit["raw"])
+
+        return {**_text(f"Unknown tool: {tool}"), "isError": True}
+
+
+    def m_resources_list(_params):
+        return {
+            "resources": [
+                {
+                    "uri": f"skill://{slug}",
+                    "name": s["name"],
+                    "description": s["description"],
+                    "mimeType": "text/markdown",
+                }
+                for slug, s in load_skills().items()
+            ]
+        }
+
+
+    def m_resources_read(params):
+        uri = (params or {}).get("uri", "")
+        slug = uri[len("skill://"):] if uri.startswith("skill://") else uri
+        skill = load_skills().get(slug)
+        if not skill:
+            raise KeyError(f"Unknown resource: {uri}")
+        return {"contents": [{"uri": uri, "mimeType": "text/markdown", "text": skill["raw"]}]}
+
+
+    def m_prompts_list(_params):
+        return {
+            "prompts": [
+                {"name": s["name"], "description": s["description"], "arguments": []}
+                for s in load_skills().values()
+            ]
+        }
+
+
+    def m_prompts_get(params):
+        want = (params or {}).get("name", "")
+        skills = load_skills()
+        hit = skills.get(want) or next((s for s in skills.values() if s["name"] == want), None)
+        if not hit:
+            raise KeyError(f"Unknown prompt: {want}")
+        return {
+            "description": hit["description"],
+            "messages": [
+                {"role": "user", "content": {"type": "text", "text": hit["raw"]}}
+            ],
+        }
+
+
+    HANDLERS = {
+        "initialize": m_initialize,
+        "tools/list": m_tools_list,
+        "tools/call": m_tools_call,
+        "resources/list": m_resources_list,
+        "resources/read": m_resources_read,
+        "prompts/list": m_prompts_list,
+        "prompts/get": m_prompts_get,
+        "ping": lambda _p: {},
+    }
+
+
+    def dispatch(msg):
+        """Handle one JSON-RPC message. Returns None for notifications."""
+        method = msg.get("method")
+        mid = msg.get("id")
+        if mid is None:  # notification — acknowledged with no body
+            return None
+        handler = HANDLERS.get(method)
+        if handler is None:
+            return {"jsonrpc": "2.0", "id": mid,
+                    "error": {"code": -32601, "message": f"Method not found: {method}"}}
+        try:
+            return {"jsonrpc": "2.0", "id": mid, "result": handler(msg.get("params"))}
+        except KeyError as exc:
+            return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32602, "message": str(exc)}}
+        except Exception as exc:  # never take the server down over one bad call
+            print(f"skills-mcp: error handling {method}: {exc}", file=sys.stderr)
+            return {"jsonrpc": "2.0", "id": mid,
+                    "error": {"code": -32603, "message": f"Internal error: {exc}"}}
+
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, fmt, *args):
+            print(f"skills-mcp: {self.address_string()} {fmt % args}", file=sys.stderr)
+
+        def _send(self, code, body=b"", ctype="application/json"):
+            self.send_response(code)
+            if body:
+                self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            if body:
+                self.wfile.write(body)
+
+        def do_GET(self):
+            if self.path.rstrip("/") in ("/healthz", "/health"):
+                skills = load_skills()
+                body = json.dumps({"status": "ok", "skills": sorted(skills)}).encode()
+                return self._send(200, body)
+            # No server-initiated SSE stream: clients should POST instead.
+            self._send(405)
+
+        def do_POST(self):
+            if self.path.rstrip("/") not in ("/mcp", ""):
+                return self._send(404, b'{"error":"not found"}')
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                payload = json.loads(self.rfile.read(length) or b"{}")
+            except (ValueError, TypeError) as exc:
+                return self._send(400, json.dumps(
+                    {"jsonrpc": "2.0", "id": None,
+                     "error": {"code": -32700, "message": f"Parse error: {exc}"}}).encode())
+
+            # A batch is a list; a single call is an object.
+            if isinstance(payload, list):
+                out = [r for r in (dispatch(m) for m in payload) if r is not None]
+                if not out:
+                    return self._send(202)
+                return self._send(200, json.dumps(out).encode())
+
+            result = dispatch(payload)
+            if result is None:
+                return self._send(202)
+            return self._send(200, json.dumps(result).encode())
+
+
+    def main():
+        skills = load_skills()
+        print(f"skills-mcp: serving {len(skills)} skill(s) from {SKILLS_DIR} on :{PORT}", file=sys.stderr)
+        for slug in skills:
+            print(f"skills-mcp:   - {slug}", file=sys.stderr)
+        ThreadingHTTPServer(("", PORT), Handler).serve_forever()
+
+
+    if __name__ == "__main__":
+        main()
+
