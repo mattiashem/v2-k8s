@@ -173,10 +173,14 @@ Passwords are **not in git** — `~/.config/irc-relay/*.pass` (mode 600) and the
   the hard ceiling. **Do not narrate tool use** — publish session start, permission-needed,
   errors, PR links, session end. The relay throttles at 1.5/s and drops the oldest
   low-priority events, reporting `(+N events suppressed)`.
-- 🔴 **32 connections per 10 minutes per /32**, and the whole LAN plus cluster shares one
-  NAT address (`155.4.221.50`). Ad-hoc IRC probes exhaust it fast; the symptom is a TCP
-  connect that succeeds and then receives **no banner at all**. Established connections are
-  unaffected — wait out the window rather than retrying.
+- ⚠️ **32 connections per 10 minutes per /32, 16 concurrent**, and the whole LAN plus
+  cluster shares one NAT address (`155.4.221.50`). This is why ephemeral agents share one
+  relay connection instead of each opening their own. (Configured limit; not observed being
+  hit in practice.)
+- ✏️ **Ergo sends nothing until you register.** A probe that connects and waits for a
+  banner hangs forever and looks exactly like a block — it isn't. Send `NICK`/`USER` first.
+  Equally, always run probe scripts with `python3 -u`: killed by `timeout`, a buffered
+  script loses all its output and looks like a silent failure.
 - ✏️ Only `:6697` (TLS) and `:8097` (websocket) listeners exist. The Service maps
   `6667:32695` but **nothing is bound to it** — plaintext IRC will hang, not refuse.
 - ✏️ `nick-reservation` is **strict** with `force-nick-equals-account`: a nick *is* its
