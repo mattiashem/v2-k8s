@@ -58,6 +58,20 @@ spec:
             # round-robin VIP to actually answer 192.168.1.0/24 clients.
             - name: FTLCONF_dns_listeningMode
               value: "ALL"
+            # Public upstreams. These were ["10.0.0.1","192.168.1.1"] = the router,
+            # whose own /ip dns upstream is this very Pi-hole VIP -> a resolver loop
+            # that only the router's 1.1.1.1 second server kept afloat. Local names
+            # are handled by revServers below, so the upstreams can be public.
+            - name: FTLCONF_dns_upstreams
+              value: "1.1.1.1;9.9.9.9"
+            # Conditional forwarding. Per entry: <enabled>,<cidr>,<server>,<domain>
+            # (";" separates array elements in FTLCONF_* env vars, "," separates the
+            # fields inside one entry). This does two jobs: it forwards the local
+            # domains to the MikroTik that owns them, and it sends in-addr.arpa PTR
+            # lookups for each range to the router -- which is how client names can
+            # reach the dashboard once clients query Pi-hole directly.
+            - name: FTLCONF_dns_revServers
+              value: "true,192.168.1.0/24,192.168.1.1,v2.local;true,192.168.44.0/24,192.168.1.1,v2.ollebo.com;true,10.0.0.0/24,10.0.0.1,iot.v2.local;true,10.100.0.0/24,10.100.0.1,dmz.v2.local"
           #securityContext:
           #  privileged: true
           ports:
@@ -113,7 +127,13 @@ spec:
     port: 53
     protocol: UDP
     targetPort: 53
-  internalTrafficPolicy: Local
+  # Second LAN resolver VIP (192.168.1.16), announced from talos-wyx-ktb via the
+  # MetalLB "pihole-lan2" pool (nodeSelectors {pihole: "2"}). Handed to clients
+  # as the second DHCP DNS server, so a dead primary pod costs a retry, not DNS.
+  # externalTrafficPolicy: Local for the same reason as pihole-lan -- real client
+  # source IPs. internalTrafficPolicy stays Cluster so in-cluster callers are not
+  # pinned to a node that happens to have no pod.
+  internalTrafficPolicy: Cluster
   externalTrafficPolicy: Local
   selector:
     app: pihole
@@ -141,16 +161,22 @@ spec:
     port: 53
     protocol: UDP
     targetPort: 53
-  # Round-robin HA VIP (192.168.1.17): selects BOTH pihole pods.
-  # externalTrafficPolicy: Cluster so the MetalLB owner node can forward to a
-  # pod on either node -> load-balances across both, and fails over to the
-  # surviving pod if one is down (e.g. primary's disk won't mount).
-  # Tradeoff: client source IPs are SNAT'd on this VIP. Per-client query stats
-  # remain on the per-instance admin VIPs (pihole-dmz / pihole-dmz-2).
+  # Primary LAN resolver VIP (192.168.1.17), handed to LAN + Guest clients by
+  # the MikroTik DHCP server.
+  #
+  # externalTrafficPolicy: Local -- REQUIRED for per-client visibility. Under
+  # Cluster policy kube-proxy SNATs, so every query reached FTL as the node
+  # address (10.244.1.1 held 13k queries and was the *only* client Pi-hole had
+  # ever seen). Local skips the SNAT and FTL logs the real 192.168.1.x source.
+  #
+  # This costs nothing in availability: the MetalLB "pihole-lan" pool already
+  # carries nodeSelectors {pihole: "1"}, so .17 is announced from turing1 alone
+  # either way -- it was never a two-node VIP. Redundancy lives at the client
+  # instead: DHCP also hands out .16 (pihole-lan2, on talos-wyx-ktb).
   selector:
     app: pihole
   internalTrafficPolicy: Cluster
-  externalTrafficPolicy: Cluster
+  externalTrafficPolicy: Local
   type: LoadBalancer
 ---
 apiVersion: v1
@@ -218,6 +244,20 @@ spec:
             # round-robin VIP to actually answer 192.168.1.0/24 clients.
             - name: FTLCONF_dns_listeningMode
               value: "ALL"
+            # Public upstreams. These were ["10.0.0.1","192.168.1.1"] = the router,
+            # whose own /ip dns upstream is this very Pi-hole VIP -> a resolver loop
+            # that only the router's 1.1.1.1 second server kept afloat. Local names
+            # are handled by revServers below, so the upstreams can be public.
+            - name: FTLCONF_dns_upstreams
+              value: "1.1.1.1;9.9.9.9"
+            # Conditional forwarding. Per entry: <enabled>,<cidr>,<server>,<domain>
+            # (";" separates array elements in FTLCONF_* env vars, "," separates the
+            # fields inside one entry). This does two jobs: it forwards the local
+            # domains to the MikroTik that owns them, and it sends in-addr.arpa PTR
+            # lookups for each range to the router -- which is how client names can
+            # reach the dashboard once clients query Pi-hole directly.
+            - name: FTLCONF_dns_revServers
+              value: "true,192.168.1.0/24,192.168.1.1,v2.local;true,192.168.44.0/24,192.168.1.1,v2.ollebo.com;true,10.0.0.0/24,10.0.0.1,iot.v2.local;true,10.100.0.0/24,10.100.0.1,dmz.v2.local"
           #securityContext:
           #  privileged: true
           ports:
