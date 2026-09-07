@@ -111,7 +111,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    metallb.universe.tf/address-pool: pihole-lan2
+    metallb.universe.tf/address-pool: pihole-lan-secondary
     external-dns.alpha.kubernetes.io/hostname: pihole.v2.local
   labels:
     app: pihole
@@ -127,9 +127,11 @@ spec:
     port: 53
     protocol: UDP
     targetPort: 53
-  # Second LAN resolver VIP (192.168.1.16), announced from talos-wyx-ktb via the
-  # MetalLB "pihole-lan2" pool (nodeSelectors {pihole: "2"}). Handed to clients
-  # as the second DHCP DNS server, so a dead primary pod costs a retry, not DNS.
+  # Second LAN resolver VIP (192.168.1.19), announced from talos-wyx-ktb via the
+  # MetalLB "pihole-lan-secondary" pool (nodeSelectors {pihole: "2"}). Handed to
+  # clients as the second DHCP DNS server, so a dead primary pod costs a retry,
+  # not DNS. NB: the similarly-named "pihole-lan2" pool is NOT this -- it holds
+  # 192.168.1.16, which belongs to traefik/traefik.
   # externalTrafficPolicy: Local for the same reason as pihole-lan -- real client
   # source IPs. internalTrafficPolicy stays Cluster so in-cluster callers are not
   # pinned to a node that happens to have no pod.
@@ -172,7 +174,7 @@ spec:
   # This costs nothing in availability: the MetalLB "pihole-lan" pool already
   # carries nodeSelectors {pihole: "1"}, so .17 is announced from turing1 alone
   # either way -- it was never a two-node VIP. Redundancy lives at the client
-  # instead: DHCP also hands out .16 (pihole-lan2, on talos-wyx-ktb).
+  # instead: DHCP also hands out .19 (pihole-lan2 Service, on talos-wyx-ktb).
   selector:
     app: pihole
   internalTrafficPolicy: Cluster
