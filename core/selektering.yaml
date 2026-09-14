@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: selektering
+  namespace: argocd
+spec:
+  project: core
+  source:
+    # Renderat manifest skrivs hit av selectering-repots deploy-workflow.
+    repoURL: git@github.com:Hacking-Robots-and-Beer/deploy.git
+    targetRevision: HEAD
+    path: selectering
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: selektering
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
