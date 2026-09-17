@@ -1,0 +1,52 @@
+# The v2 cluster's ArgoCD has no organizzer Application for the other three
+# deployments — elino's, goodtribes' and samma's are all rendered and applied
+# by hand:
+#
+#   helm template organizzer-hrb chart/ --set image.tag=$(git rev-parse HEAD) \
+#     | kubectl apply -f -
+#
+# This one is not. Apply it once, by hand, and ArgoCD owns the directory from
+# then on:
+#
+#   kubectl apply -f core/organizzer-hrb.yaml
+#
+# Nothing happens until someone presses sync — see the note on manual sync
+# below — and nothing pulls until the image referenced by
+# organizzer-hrb/organizzer.yaml has been published.
+#
+# v2-k8s is an app-of-apps repo: core/*.yaml are themselves ArgoCD Application
+# resources, each pointing at a top-level directory of plain manifests. CI would
+# render this chart into organizzer-hrb/organizzer.yaml in that repo; this
+# Application is what makes ArgoCD notice the directory at all.
+#
+# The name and path are organizzer-hrb, not organizzer. The elino deployment
+# claims the plain name, and two Applications rendering different charts into
+# one path would overwrite each other on every push. organizzer-goodtribes and
+# organizzer-samma are the other two already spoken for.
+#
+# Sync is manual, deliberately, matching core/kubefoundry.yaml. These workers
+# comment on real issues and spend real model credits, so a freshly pushed
+# manifest going live without anyone pressing sync is not a property worth
+# having. Turn on automated sync once the request and plan stages have run
+# against real cards and behaved.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: organizzer-hrb
+  namespace: argocd
+spec:
+  project: core
+  source:
+    repoURL: git@github.com:mattiashem/v2-k8s.git
+    targetRevision: master
+    path: organizzer-hrb
+  destination:
+    server: https://kubernetes.default.svc
+    # Must match the chart's own `namespace` value: the chart stamps that into
+    # every rendered object's metadata.namespace, and a mismatch splits the
+    # sync across two namespaces.
+    namespace: organizzer
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=false
