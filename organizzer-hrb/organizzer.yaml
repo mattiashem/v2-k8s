@@ -60,7 +60,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:a624efdc50e25333ba70d4e1cefd23fd04c7d399"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:59ad081c8f7b407bc3fb6467878d982510cec9fe"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "plan"]
           ports:
@@ -72,11 +72,11 @@ spec:
             - name: PROJECT_NUMBER
               value: "1"
             - name: ALLOWED_REPOS
-              value: "hacking.robots.beer,hosts-backend,cluster-tools,helmdeployer, deploy,eu-upcloud-core,eu-upcloud-service,infra,helmcharts"
+              value: "hacking.robots.beer,hosts-backend,cluster-tools,helmdeployer, deploy,eu-upcloud-core,eu-upcloud-service"
             - name: ISSUE_REPO
               value: "Hacking-Robots-and-Beer/deploy"
             - name: AREA_REPOS
-              value: "run.robots.beer=Hacking-Robots-and-Beer/hacking.robots.beer, hosts-backend=Hacking-Robots-and-Beer/hosts-backend, cluster-tools=Hacking-Robots-and-Beer/cluster-tools, helmdeployer=Hacking-Robots-and-Beer/helmdeployer, eu-upcloud-core=Hacking-Robots-and-Beer/eu-upcloud-core, eu-upcloud-service=Hacking-Robots-and-Beer/eu-upcloud-service, deploy=Hacking-Robots-and-Beer/deploy, infra=northamlin/deploy, helmcharts=northamlin/helmcharts"
+              value: "run.robots.beer=Hacking-Robots-and-Beer/hacking.robots.beer, hosts-backend=Hacking-Robots-and-Beer/hosts-backend, cluster-tools=Hacking-Robots-and-Beer/cluster-tools, helmdeployer=Hacking-Robots-and-Beer/helmdeployer, eu-upcloud-core=Hacking-Robots-and-Beer/eu-upcloud-core, eu-upcloud-service=Hacking-Robots-and-Beer/eu-upcloud-service, deploy=Hacking-Robots-and-Beer/deploy"
             - name: PRIORITY_TRACKS
               value: "Infra,Backend"
             - name: POLL_BUSY_SECONDS
@@ -190,7 +190,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:a624efdc50e25333ba70d4e1cefd23fd04c7d399"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:59ad081c8f7b407bc3fb6467878d982510cec9fe"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "request"]
           ports:
@@ -202,11 +202,11 @@ spec:
             - name: PROJECT_NUMBER
               value: "1"
             - name: ALLOWED_REPOS
-              value: "hacking.robots.beer,hosts-backend,cluster-tools,helmdeployer, deploy,eu-upcloud-core,eu-upcloud-service,infra,helmcharts"
+              value: "hacking.robots.beer,hosts-backend,cluster-tools,helmdeployer, deploy,eu-upcloud-core,eu-upcloud-service"
             - name: ISSUE_REPO
               value: "Hacking-Robots-and-Beer/deploy"
             - name: AREA_REPOS
-              value: "run.robots.beer=Hacking-Robots-and-Beer/hacking.robots.beer, hosts-backend=Hacking-Robots-and-Beer/hosts-backend, cluster-tools=Hacking-Robots-and-Beer/cluster-tools, helmdeployer=Hacking-Robots-and-Beer/helmdeployer, eu-upcloud-core=Hacking-Robots-and-Beer/eu-upcloud-core, eu-upcloud-service=Hacking-Robots-and-Beer/eu-upcloud-service, deploy=Hacking-Robots-and-Beer/deploy, infra=northamlin/deploy, helmcharts=northamlin/helmcharts"
+              value: "run.robots.beer=Hacking-Robots-and-Beer/hacking.robots.beer, hosts-backend=Hacking-Robots-and-Beer/hosts-backend, cluster-tools=Hacking-Robots-and-Beer/cluster-tools, helmdeployer=Hacking-Robots-and-Beer/helmdeployer, eu-upcloud-core=Hacking-Robots-and-Beer/eu-upcloud-core, eu-upcloud-service=Hacking-Robots-and-Beer/eu-upcloud-service, deploy=Hacking-Robots-and-Beer/deploy"
             - name: PRIORITY_TRACKS
               value: "Infra,Backend"
             - name: POLL_BUSY_SECONDS
