@@ -49,26 +49,22 @@ spec:
     server: https://kubernetes.default.svc
     namespace: mailgw
   # Cluster/mail-config-pg diffar permanent utan att något är fel: CNPG:s
-  # operator fyller i defaultvärden som charten inte skriver ut, och de syns
-  # som drift. Fälten nollas på båda sidor innan diffen i stället för att
-  # skrivas in i charten, för en default som upprepas i git driftar tyst den
-  # dagen operatorn ändrar den.
+  # operator fyller i ett trettiotal defaultvärden som charten inte skriver ut
+  # — imageName, postgresql.parameters, monitoring, postgresUID, ett gäng
+  # timeouts — och de syns som drift.
+  #
+  # Att räkna upp fälten ett och ett är fel verktyg: listan är lång, den är
+  # inte stabil mellan CNPG-versioner, och en uppräkning som halkar efter ser
+  # ut att fungera ända tills den inte gör det. Ignorera i stället allt som
+  # operatorn själv äger. Den skriver som `Go-http-client`, och regeln är
+  # bunden till just den här resursen, så namnets generiska klang spelar roll
+  # bara här.
   ignoreDifferences:
     - group: postgresql.cnpg.io
       kind: Cluster
       name: mail-config-pg
-      jsonPointers:
-        - /spec/affinity/podAntiAffinityType
-        - /spec/affinity/topologyKey
-        - /spec/storage/resizeInUseVolumes
-        - /spec/bootstrap/initdb/encoding
-        - /spec/bootstrap/initdb/localeCType
-        - /spec/bootstrap/initdb/localeCollate
-        # En enda roll, därav indexet. Operatorn sätter connectionLimit och
-        # släpper createdb/createrole när de är false.
-        - /spec/managed/roles/0/connectionLimit
-        - /spec/managed/roles/0/createdb
-        - /spec/managed/roles/0/createrole
+      managedFieldsManagers:
+        - Go-http-client
   syncPolicy:
     automated:
       # Se den gemensamma kommentaren överst: ingen Application här prunar.
