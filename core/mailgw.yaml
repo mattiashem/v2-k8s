@@ -48,11 +48,37 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: mailgw
+  # Cluster/mail-config-pg diffar permanent utan att något är fel: CNPG:s
+  # operator fyller i defaultvärden som charten inte skriver ut, och de syns
+  # som drift. Fälten nollas på båda sidor innan diffen i stället för att
+  # skrivas in i charten, för en default som upprepas i git driftar tyst den
+  # dagen operatorn ändrar den.
+  ignoreDifferences:
+    - group: postgresql.cnpg.io
+      kind: Cluster
+      name: mail-config-pg
+      jsonPointers:
+        - /spec/affinity/podAntiAffinityType
+        - /spec/affinity/topologyKey
+        - /spec/storage/resizeInUseVolumes
+        - /spec/bootstrap/initdb/encoding
+        - /spec/bootstrap/initdb/localeCType
+        - /spec/bootstrap/initdb/localeCollate
+        # En enda roll, därav indexet. Operatorn sätter connectionLimit och
+        # släpper createdb/createrole när de är false.
+        - /spec/managed/roles/0/connectionLimit
+        - /spec/managed/roles/0/createdb
+        - /spec/managed/roles/0/createrole
   syncPolicy:
-    # Manual until the first sync has been diffed against the running install.
-    # These resources were installed by hand with Helm on 2026-08-01 and are
-    # carrying real state; adoption is a one-time thing to watch, not to
-    # automate. Turn on `automated: {}` once the diff is clean.
+    automated:
+      # Se den gemensamma kommentaren överst: ingen Application här prunar.
+      prune: false
+      # Till skillnad från de andra två: selfHeal av. Resurserna installerades
+      # för hand med Helm 2026-08-01 och bär verklig state, och en databas ska
+      # inte återställas i en loop om diffen mot förmodan inte är ren. Nya
+      # revisioner i git rullas ut ändå — selfHeal styr bara om ArgoCD jagar
+      # avvikelser i klustret när git står stilla.
+      selfHeal: false
     syncOptions:
       - CreateNamespace=true
 ---
@@ -73,6 +99,9 @@ spec:
     server: https://kubernetes.default.svc
     namespace: mailgw
   syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -93,11 +122,12 @@ spec:
     server: https://kubernetes.default.svc
     namespace: mailgw
   syncPolicy:
-    # Stays manual longer than the other two. The web client needs
-    # `mail-client-web-secret` (KEYCLOAK_CLIENT_SECRET, AUTH_SECRET) to exist
-    # in the namespace or its pods sit in CreateContainerConfigError, and it
-    # has no route: values-v2cluster.yaml keeps the Ingress off because the
-    # cluster's routing is not ours to change. Reach it with
-    #   kubectl -n mailgw port-forward svc/mail-client 3100:3000
+    # Båda villkoren som höll den här manuell är uppfyllda sedan 2026-09-16.
+    # `mail-client-web-secret` finns i namnrymden, och routen är beslutad och
+    # utlagd: mail.v2.local, entrypoint web utan TLS eftersom ett internt namn
+    # aldrig klarar HTTP-01. Klienten nås alltså utan port-forward.
+    automated:
+      prune: false
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
