@@ -42,7 +42,7 @@ spec:
     # "<provider>/<model-id>" — the "berget/" prefix is required, it selects the
     # provider block below. Override per task with a model-only skill.
     - name: BERGET_MODEL
-      value: "berget/zai-org/GLM-5.2"
+      value: "berget/zai-org/GLM-5.3-Flash"
     # Cheap model for title generation and other incidental calls.
     - name: BERGET_SMALL_MODEL
       value: "berget/mistralai/Mistral-Small-3.2-24B-Instruct-2506"
@@ -63,7 +63,7 @@ spec:
                 "apiKey": "{env:ANTHROPIC_API_KEY}"
               },
               "models": {
-                "zai-org/GLM-5.2": {
+                "zai-org/GLM-5.3-Flash": {
                   "name": "Berget default"
                 },
                 "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
@@ -90,7 +90,7 @@ spec:
 # `berget-large` selects it: the override skills set BERGET_MODEL but reuse this
 # skill's config.json, so an id missing from this map cannot be selected at all.
 #
-# Chosen defaults: GLM-5.2 for the default (strong tool-calling — OpenCode drives
+# Chosen defaults: GLM-5.3-Flash for the default (strong tool-calling — OpenCode drives
 # everything through tool calls, and a weak model fails in ways that look like
 # kube-foundry bugs), Mistral-Small for small_model/`berget-fast`, Kimi-K3 for
 # `berget-large`.
