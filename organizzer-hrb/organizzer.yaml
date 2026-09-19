@@ -16,7 +16,6 @@
 # request and plan have run against real cards and factory-creds-hrb exists in
 # the kubefoundry namespace.
 ---
----
 # Source: organizzer/templates/deployments.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -60,7 +59,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:59ad081c8f7b407bc3fb6467878d982510cec9fe"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:eeab944c342c65a0d81e469257ed26b5179b7d0b"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "plan"]
           ports:
@@ -114,7 +113,7 @@ spec:
             - name: LOG_LEVEL
               value: "info"
             - name: MODEL_PLAN
-              value: "zai-org/GLM-5.2"
+              value: "zai-org/GLM-5.3-Flash"
           envFrom:
             - secretRef:
                 name: hrb-organizzer-secret
@@ -190,7 +189,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:59ad081c8f7b407bc3fb6467878d982510cec9fe"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:eeab944c342c65a0d81e469257ed26b5179b7d0b"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "request"]
           ports:
