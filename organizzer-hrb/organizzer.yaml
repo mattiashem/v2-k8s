@@ -20,6 +20,134 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: organizzer-hrb-apply
+  namespace: organizzer
+  labels:
+    app.kubernetes.io/name: organizzer
+    app.kubernetes.io/instance: organizzer-hrb
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: apply
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: organizzer
+      app.kubernetes.io/instance: organizzer-hrb
+      app.kubernetes.io/component: apply
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: organizzer
+        app.kubernetes.io/instance: organizzer-hrb
+        app.kubernetes.io/component: apply
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        # Without this the pod only satisfies "baseline", and a namespace that
+        # enforces the restricted profile rejects it outright rather than
+        # warning as this cluster does.
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: organizzer
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:1822cccdc168a7ef7d23e854e78b8eb54f914cb1"
+          imagePullPolicy: IfNotPresent
+          command: ["organizzer", "apply"]
+          ports:
+            - name: health
+              containerPort: 8080
+          env:
+            - name: GITHUB_ORG
+              value: "Hacking-Robots-and-Beer"
+            - name: PROJECT_NUMBER
+              value: "1"
+            - name: ALLOWED_REPOS
+              value: "hacking.robots.beer,hosts-backend,cluster-tools,helmdeployer, deploy,eu-upcloud-core,eu-upcloud-service"
+            - name: ISSUE_REPO
+              value: "Hacking-Robots-and-Beer/deploy"
+            - name: AREA_REPOS
+              value: "run.robots.beer=Hacking-Robots-and-Beer/hacking.robots.beer, hosts-backend=Hacking-Robots-and-Beer/hosts-backend, cluster-tools=Hacking-Robots-and-Beer/cluster-tools, helmdeployer=Hacking-Robots-and-Beer/helmdeployer, eu-upcloud-core=Hacking-Robots-and-Beer/eu-upcloud-core, eu-upcloud-service=Hacking-Robots-and-Beer/eu-upcloud-service, deploy=Hacking-Robots-and-Beer/deploy"
+            - name: PRIORITY_TRACKS
+              value: "Infra,Backend"
+            - name: POLL_BUSY_SECONDS
+              value: "10"
+            - name: POLL_IDLE_SECONDS
+              value: "60"
+            - name: BERGET_BASE_URL
+              value: "https://api.berget.ai/v1"
+            - name: BERGET_TIMEOUT_SECONDS
+              value: "900"
+            - name: LLM_TEMPERATURE
+              value: "0.1"
+            - name: LLM_MAX_ATTEMPTS
+              value: "3"
+            - name: MAX_ISSUES_PER_HOUR
+              value: "10"
+            - name: KUBEFOUNDRY_WEBHOOK_URL
+              value: "http://kube-foundry-webhook.kubefoundry.svc.cluster.local"
+            - name: KUBEFOUNDRY_WEBHOOK_PATH
+              value: "/api/v1/tasks"
+            - name: FOUNDRY_AGENT
+              value: "open-code"
+            - name: FOUNDRY_SKILLS
+              value: "berget"
+            - name: FOUNDRY_SECRET_REF
+              value: "factory-creds-hrb"
+            - name: FOUNDRY_BRANCH
+              value: "main"
+            - name: FOUNDRY_MAX_RETRIES
+              value: "1"
+            - name: FOUNDRY_GIT_AUTHOR_NAME
+              value: "organizzer"
+            - name: FOUNDRY_GIT_AUTHOR_EMAIL
+              value: "organizzer@robots.beer"
+            - name: LOG_LEVEL
+              value: "info"
+          envFrom:
+            - secretRef:
+                name: hrb-organizzer-secret
+          # There is no request traffic to serve, so readiness reports whether
+          # the poll loop is still turning. A stage wedged on something it
+          # cannot see stops ticking and shows up here rather than looking
+          # healthy while doing nothing.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+
+---
+# Source: organizzer/templates/deployments.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: organizzer-hrb-plan
   namespace: organizzer
   labels:
@@ -59,7 +187,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:511a4b9c5c23fe325527d8a2100ae7ba0e71d77e"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:1822cccdc168a7ef7d23e854e78b8eb54f914cb1"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "plan"]
           ports:
@@ -189,7 +317,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:511a4b9c5c23fe325527d8a2100ae7ba0e71d77e"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:1822cccdc168a7ef7d23e854e78b8eb54f914cb1"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "request"]
           ports:
