@@ -59,7 +59,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:1822cccdc168a7ef7d23e854e78b8eb54f914cb1"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:57ce322923cb8d9c7c9687ebd63cfd5e77196f16"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "apply"]
           ports:
@@ -187,7 +187,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:1822cccdc168a7ef7d23e854e78b8eb54f914cb1"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:57ce322923cb8d9c7c9687ebd63cfd5e77196f16"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "plan"]
           ports:
@@ -317,7 +317,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: organizzer
-          image: "ghcr.io/hacking-robots-and-beer/organizzer:1822cccdc168a7ef7d23e854e78b8eb54f914cb1"
+          image: "ghcr.io/hacking-robots-and-beer/organizzer:57ce322923cb8d9c7c9687ebd63cfd5e77196f16"
           imagePullPolicy: IfNotPresent
           command: ["organizzer", "request"]
           ports:
