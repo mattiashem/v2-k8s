@@ -229,7 +229,10 @@ Passwords are **not in git** — `~/.config/irc-relay/*.pass` (mode 600) and the
 ## Cert-Manager
 - ClusterIssuer: `http` (HTTP-01 via Traefik)
 - Traefik runs on NodePort — needs router portforward 80→NodePort for cert renewal
-- Known issue: `chat.robots.beer` cert stuck pending (port 80 not reachable externally)
+- `chat.robots.beer` renews fine (Certificate READY), but **Ergo loads its TLS cert only at
+  startup** — after each renewal (~every 60 d) restart it or clients fail with
+  `certificate has expired` while the Secret already holds the new cert (happened 2026-10-08):
+  `kubectl --kubeconfig=~/.kube/confighrb rollout restart deployment/irc -n hrb`
 
 ## Common Commands
 ```bash
