@@ -118,10 +118,10 @@ Two instances, both in the local cluster, both on **node1**, both StatefulSets.
 resources:
   requests:
     cpu: "2000m"
-    memory: "2Gi"
+    memory: "4Gi"
   limits:
     cpu: "2000m"
-    memory: "2Gi"
+    memory: "4Gi"
 ```
 
 ### Config Location

@@ -92,10 +92,10 @@ spec:
         resources:
           requests:
             cpu: "2000m"
-            memory: "2Gi"
+            memory: "4Gi"
           limits:
             cpu: "2000m"
-            memory: "2Gi"
+            memory: "4Gi"
         ports:
         - containerPort: 18789
           name: http
