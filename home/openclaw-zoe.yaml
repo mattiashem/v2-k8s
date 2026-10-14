@@ -3,13 +3,10 @@ kind: Namespace
 metadata:
   name: openclaw-zoe
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: openclaw-zoe-secrets
-  namespace: openclaw-zoe
-stringData:
-  OPENCLAW_GATEWAY_TOKEN: "43c6869cb063b54cdafa1effd22d9fb4b5ad432cc4472c82a3acace2e8b06f4c"
+# Secret openclaw-zoe-secrets is NOT in git (this repo is public). It is managed only
+# in the cluster and holds every credential openclaw.json references
+# (OPENCLAW_GATEWAY_TOKEN, OC_GOOGLE_API_KEY, OC_TELEGRAM_BOT_TOKEN, ...).
+# Do not prune it on an ArgoCD sync.
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -74,7 +71,8 @@ spec:
       containers:
       - name: openclaw-zoe
         #image: ubuntu:latest
-        image: ghcr.io/openclaw/openclaw:latest
+        # Pinned by digest (= 2026.10.2). Bump deliberately; :latest broke boot before.
+        image: ghcr.io/openclaw/openclaw@sha256:32490a7091ca02acde649af3a214704d5c0fa9d774890f6ab231a8c2c958c36f
         command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789", "--allow-unconfigured"]
         #command: ["tail","-f","/dev/null"]
         env:
