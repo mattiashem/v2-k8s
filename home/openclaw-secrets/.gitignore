@@ -1,0 +1,3 @@
+# Never commit real env files - this repo is public.
+*.env
+!*.env.example
