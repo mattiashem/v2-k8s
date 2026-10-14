@@ -51,6 +51,9 @@ spec:
       template:
         spec:
           restartPolicy: Never
+          # The image is amd64-only; on an arm64 node the pull fails with ImagePullBackOff.
+          nodeSelector:
+            kubernetes.io/arch: amd64
           imagePullSecrets:
             - name: ghcr
           # Satisfies the "restricted" Pod Security Standard. fsGroup is what lets
