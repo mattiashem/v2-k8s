@@ -3,11 +3,9 @@ kind: Namespace
 metadata:
   name: plex
   labels:
-    kubernetes.io/metadata.name: metallb-system
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/warn: privileged
----
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -21,14 +19,6 @@ spec:
     requests:
       storage: 5Gi
 
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: plex-secrets
-  namespace: plex
-stringData:
-  PLEX_CLAIM: claim-UHsZeCKqeSsEdsyXrbNV
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -46,20 +36,24 @@ spec:
       labels:
         app: plex
     spec:
+      # Only big amd64 box left (40 cores / 128 GB). Pinning also stops the
+      # Longhorn multi-attach shuffle when the pod gets rescheduled.
+      nodeSelector:
+        kubernetes.io/hostname: node1
       containers:
       - name: plex
-        image: plexinc/pms-docker
+        image: plexinc/pms-docker:latest
+        imagePullPolicy: Always
         env:
-        - name: plex
-          value: "true"
-
-        # Load database DSN & admin password from secret
-        envFrom:
-        - secretRef:
-            name: plex-secrets
-            optional: false
+        - name: TZ
+          value: Europe/Stockholm
+        # Seed values for a fresh /config only. The live prefs on the PVC win;
+        # change them via PUT /:/prefs (customConnections / LanNetworksBandwidth).
+        - name: ADVERTISE_IP
+          value: http://192.168.1.41:32400/
+        - name: ALLOWED_NETWORKS
+          value: 192.168.1.0/24,10.0.0.0/24,10.244.0.0/16,192.168.10.0/24
         ports:
-
         - containerPort: 32400
           name: http
         - containerPort: 3005
@@ -75,12 +69,38 @@ spec:
           protocol: UDP
         - containerPort: 32414
           protocol: UDP
+        # No CPU limit: transcodes should burst across node1's cores.
+        resources:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            memory: 8Gi
+        # Generous startup window for DB migrations after a :latest upgrade.
+        startupProbe:
+          httpGet:
+            path: /identity
+            port: 32400
+          periodSeconds: 10
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /identity
+            port: 32400
+          periodSeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /identity
+            port: 32400
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 5
         volumeMounts:
         - mountPath: /data
           name: nfs-vol
         - mountPath: /config/
           name: config
-        - name: dshm
+        - name: transcode
           mountPath: /transcode
       volumes:
       - name: nfs-vol
@@ -90,12 +110,11 @@ spec:
       - name: config
         persistentVolumeClaim:
           claimName: plex-config
-      - name: dshm
-        emptyDir: {}
-
-
-
-
+      # RAM-backed transcode scratch (counts against the 8Gi memory limit).
+      - name: transcode
+        emptyDir:
+          medium: Memory
+          sizeLimit: 4Gi
 ---
 apiVersion: v1
 kind: Service
@@ -103,7 +122,7 @@ metadata:
   name: plex
   namespace: plex
   annotations:  
-    external-dns.alpha.kubernetes.io/hostname: plex.socomp.se
+    external-dns.alpha.kubernetes.io/hostname: plex.v2.local
     metallb.universe.tf/address-pool: lan
 spec:
   ports:
