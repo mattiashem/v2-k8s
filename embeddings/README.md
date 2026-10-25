@@ -10,7 +10,7 @@ no external dependency, and memory content never leaves the house.
 
 - Image `ollama/ollama` (pinned), model `embeddinggemma:300m` (multilingual, 768 dims).
 - Model is pulled by an init container into an `emptyDir`, so the pod can come back on
-  any node. Kept off `node1` (pod cap); prefers `node2`/`node3`.
+  any node. Kept off `node1` (pod cap); prefers `talos-wyx-ktb` (amd64, big disk), then `turing1`.
 - `OLLAMA_KEEP_ALIVE=-1` keeps the model loaded, so lookups don't pay a cold load.
 - ClusterIP only: `http://ollama-embed.embeddings.svc.cluster.local:11434`.
 

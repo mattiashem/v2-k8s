@@ -34,15 +34,23 @@ spec:
                   - key: kubernetes.io/hostname
                     operator: NotIn
                     values: ["node1"]
-          # Prefer the big amd64 boxes; they flap, so this is a preference, and the
-          # emptyDir model store lets the pod come back on any other node.
+          # talos-wyx-ktb: amd64 (faster CPU inference) with plenty of disk for the
+          # multi-GB image; turing1 next. node2/node3/turing2 flap and turing3 runs
+          # into disk pressure. Preferences only: the emptyDir model store lets the
+          # pod come back on any other node.
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
               preference:
                 matchExpressions:
                   - key: kubernetes.io/hostname
                     operator: In
-                    values: ["node2", "node3"]
+                    values: ["talos-wyx-ktb"]
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: ["turing1"]
       # The model is pulled into an emptyDir instead of a Longhorn PVC: ~600 MB is
       # quick to fetch, and the pod is not tied to a volume on a node that may be gone.
       initContainers:
