@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-embed
+  namespace: embeddings
+  labels:
+    app: ollama-embed
+spec:
+  type: ClusterIP
+  selector:
+    app: ollama-embed
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
